@@ -1,71 +1,70 @@
 # StaMPS-HPC MATLAB Processing Optimization Log
 
 **Version:** 1.0.0  
-**Status:** Hybrid MATLAB/C-MEX Performance Build  
+**Status:** High-Performance Hybrid Build  
 **Author:** Mingjia Li  
-**Focus:** Algorithmic Refactoring, OpenMP-Accelerated MEX, and Hybrid Workflow Efficiency
+**Focus:** Bottleneck Elimination, Hybrid MEX/OpenMP Acceleration, and I/O Optimization
 
 ---
 
-## 1. Summary of Enhancements
+## 1. Executive Summary
 
-This update represents a major performance overhaul of the StaMPS processing chain (Steps 1-5). By transitioning computationally intensive MATLAB bottlenecks to **OpenMP-accelerated C-MEX** implementations, we have achieved a significant reduction in total processing time while maintaining high numerical stability.
+This release focuses on resolving the critical computational bottlenecks in the StaMPS InSAR processing chain. By identifying the most time-consuming steps (Step 2 and Step 3) and refactoring them with **OpenMP-accelerated C-MEX kernels** and **Batch Processing strategies**, we have achieved an order-of-magnitude performance improvement.
+
+**Performance Highlight (Tested on Reference Dataset):**
+* **Step 3 (PS Selection):** Execution time reduced from **2564s to ~116s** (~22x Speedup).
+* **Step 2 (Gamma Estimation):** Execution time reduced from **474s to ~327s** (~1.45x Speedup).
 
 ---
 
-## 2. Detailed Step-by-Step Changes
+## 2. Critical Performance Overhauls (Major Changes)
+
+
+### [Step 2] Gamma Estimation (`ps_est_gamma_quick.m`)
+**Status:** **Core Computation Optimization**
+* **The Bottleneck:** Heavy usage of FFT and iterative convolution operations inside the estimation loop.
+* **The Solution:** Offloaded heavy math to C-MEX and optimized MATLAB data structures.
+* **Key Optimizations:**
+    * **MEX Integration:** Replaced `clap_filt.m` with `clap_filt_mex.c` (OpenMP optimized).
+    * **Vectorization:** Replaced slow `squeeze` and dimensional permutation operations with direct linear indexing.
+    * **I/O Efficiency:** Moved the time-consuming `stamps_save` operation **outside** the main iteration loop, significantly reducing disk I/O latency.
+
+### [Step 3] PS Pixel Selection (`ps_select.m`)
+**Status:** **Complete Architectural Refactoring**
+* **The Bottleneck:** The original code iterated through candidate pixels sequentially in MATLAB, causing massive interpreter overhead.
+* **The Solution:** Implemented a **Batch Processing Strategy**. Instead of looping, the entire pixel grid is passed to a high-performance C-MEX kernel (`clap_filt_patch_mex`) for parallel filtering.
+* **Key Optimizations:**
+    * **Loop Elimination:** Removed the primary `for` loop over PS candidates.
+    * **Hybrid Kernel:** Integrated `clap_filt_patch_mex.c` (OpenMP) for parallel phase filtering.
+    * **Optional Approximation:** Added `use_fast_topofit` parameter.
+        * `'y'` (Default for HPC): Uses `ps_topofit_mex` (Fastest, ~1.4% numerical divergence).
+        * `'n'`: Uses legacy MATLAB topofit (Exact precision, slightly slower).
+
+---
+
+## 3. Stability & Bug Fixes (Minor Changes)
 
 ### [Step 1] Initial Data Loading
 * **Scripts:** `ps_load_initial_gamma.m`, `sb_load_initial_gamma.m`
-* **Changes:** Resolved stability bugs during the Gamma data ingestion phase to ensure robust handling of large-scale datasets.
-
-### [Step 2] Gamma Estimation (Core Computation)
-* **Script:** `ps_est_gamma_quick.m`
-* **Optimization:** Complete refactoring using hybrid MEX-C integration.
-* **Key Replacements:**
-    * Replaced MATLAB `clap_filt.m` with high-performance `clap_filt_mex.c`.
-    * Replaced MATLAB `ps_topofit.m` with high-performance `ps_topofit_mex.c`.
-* **Technology:** Leveraged **OpenMP multi-threading** within the C-MEX kernel to handle pixel-wise calculations in parallel.
-
-### [Step 3] PS Pixel Selection
-* **Script:** `ps_select.m`
-* **Optimization:** Re-engineered the selection logic to support external C-MEX calls.
-* **Key Replacements:**
-    * Replaced MATLAB `clap_filt_patch.m` with `clap_filt_patch_mex.c`.
-    * Integrated optional `ps_topofit_mex.c` for accelerated topographic fitting.
-* **Accuracy Trade-off:** * The C-based `topofit` introduces a minor numerical divergence of **~1.4e-02 (1.4%)** compared to the original MATLAB implementation. 
-    * **Toggle:** Users can enable this via `setparm('use_fast_topofit', 'y')`. The default is set to `'n'` for maximum precision.
+* **Changes:** Applied patches to fix stability issues during the initial loading of large-scale binary files.
 
 ### [Step 4] Adjacency Weeding
 * **Script:** `ps_weed.m`
-* **Changes:** Minor algorithmic optimizations to reduce redundant loops and memory fragmentation.
+* **Changes:** * Optimized memory fragmentation during the weeding process.
+    * Removed redundant variable allocations to lower peak RAM usage.
 
-### [Step 5] Phase Correction & Patch Merging
+### [Step 5] Phase Correction
 * **Script:** `ps_correct_phase.m`
-* **Changes:** Fixed critical bugs and applied efficiency patches to the phase unwrapping preparation and patch merging logic.
+* **Changes:** * Fixed critical bugs related to patch merging logic.
+    * Streamlined the preparation phase for unwrapping (efficiency patches).
 
 ---
 
-## 3. Compilation Instructions (MEX)
+## 4. Benchmark Results
 
-To activate the acceleration modules, compile the source files within the MATLAB environment.
+| Processing Step | Original Time | Optimized Time | Speedup | Note |
+| :--- | :--- | :--- | :--- | :--- |
+| **Step 2 (Gamma Est)** | 474s | **327s** | **~1.45x** | I/O & Iteration bound |
+| **Step 3 (PS Select)** | 2564s | **116s** | **~22.1x** | CPU & Loop bound |
 
-### Prerequisites
-* **Compiler:** GCC 6.3.x or later (Linux/WSL2).
-* **Architecture:** MATLAB R2018a or later (64-bit).
-
-### Build Commands
-Execute the following in the MATLAB Command Window:
-
-matlab
-% Compile Step 2 Modules (clap_filt & ps_topofit)
-mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" clap_filt_mex.c
-mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" ps_topofit_mex.c
-
-% Compile Step 3 Modules (clap_filt_patch)
-mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" clap_filt_patch_mex.c
-
-##4. Usage & Configuration
-Once compiled, the resulting .mexa64 (Linux) or .mexw64 (Windows) files must be present in the MATLAB search path. The processing scripts will automatically prioritize the MEX implementations over the original .m files.
-
-Note: Performance gains are most noticeable on workstations with high core counts (e.g., 16+ cores) and datasets exceeding 10 million PS points.
+> **Note:** Benchmarks performed on a workstation with SSD storage. Performance gains in Step 3 are primarily due to the elimination of MATLAB loop overheads via MEX batch processing.

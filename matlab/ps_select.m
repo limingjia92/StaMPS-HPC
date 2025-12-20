@@ -1,19 +1,37 @@
 function []=ps_select(reest_flag,plot_flag)
-% PS_SELECT Optimized for Speed
-%   
-%   Revisions:
-%   1. Integrated OpenMP-accelerated MEX for filtering (clap_filt_patch_mex).
-%   2. Integrated OpenMP-accelerated MEX for topology estimation (ps_topofit_mex).
-%      - Performance: Provides speedup (~4%)
-%      - Accuracy: Introduces minor numerical Coherence divergence ~1.4% (1.4e-02).
-%   3. Added 'use_fast_topofit' parameter (default: n).
-%      - Controls whether to use the fast MEX version or the exact MATLAB version for topology estimation.
+% PS_SELECT (HPC Optimized Version)
+%   Select PS pixels based on amplitude dispersion and phase stability.
 %
-%   Mingjia, Dec 2025
 %   ======================================================================
+%   MODIFICATION HEADER (StaMPS-HPC)
+%   ======================================================================
+%   Author:        Mingjia Li
+%   Date:          December 2025
+%   Version:       1.0 (HPC-Hybrid)
+%   License:       GPL v3.0 (Inherited from StaMPS)
 %
-%   Andy Hooper, June 2006
+%   PERFORMANCE BENCHMARK (On Test Dataset):
+%   - Original:    2564 seconds
+%   - Optimized:   116 seconds (w/ MEX Topofit) / 125 seconds (w/o MEX Topofit)
+%   - Speedup:     ~22x (Approx. 95% reduction in execution time)
 %
+%   OPTIMIZATION HIGHLIGHTS:
+%   1. Batch Processing Strategy: Replaced the pixel-wise loop with a single 
+%      MEX call ('clap_filt_patch_mex'), eliminating massive MATLAB interpreter 
+%      overhead.
+%   2. Parallelization: Integrated OpenMP multi-threading for phase filtering.
+%   3. Configuration: Added 'use_fast_topofit' parameter. (default = 'n')
+%      - 'y': 116s execution. Uses MEX topofit (~1.4% coherence divergence).
+%      - 'n': 125s execution. Uses MATLAB topofit (Exact precision).
+%
+%   COMPILATION REQUIREMENTS:
+%   mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" clap_filt_patch_mex.c
+%   mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" ps_topofit_mex.c
+%
+%   ======================================================================
+%   ORIGINAL HEADER (StaMPS)
+%   ======================================================================
+%   Original Author: Andy Hooper, June 2006
 %   ======================================================================
 %   07/2006 AH: Use specific bperp for re-estimation of gamma
 %   08/2006 AH: Load workspaces into structures
@@ -35,14 +53,9 @@ function []=ps_select(reest_flag,plot_flag)
 %   02/2016 DB: Identified bug when patch size is smaller than filter size.
 %               For now drop this patch. This needs to be fixed better.
 %   08/2017 AH: Ensure coh_thresh not negative.
-%   12/2025 Mingjia: OpenMP-accelerated MEX Optimized
+%   12/2025 MJ: OpenMP-accelerated MEX Optimized
 %   ======================================================================
 %
-%   Required Compilation:
-%   mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" clap_filt_patch_mex.c
-%   mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" ps_topofit_mex.c
-%
-
 logit;
 logit('Selecting stable-phase pixels (Mex Optimized Version)...')
 

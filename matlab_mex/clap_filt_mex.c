@@ -1,11 +1,28 @@
 /*
- * clap_filt_mex.c (Highly Optimized Version)
- * * Optimizations:
- * 1. Separable Convolution (Splits 2D 7x7 kernel into two 1D 7-tap filters).
- * 2. Trigonometric Lookup Tables (Avoids sin/cos calls in DFT).
- * 3. Pre-allocated memory buffers to reduce heap contention.
+ * ==============================================================================
+ * File: clap_filt_mex.c
+ * Original Author: Andy Hooper (clap_filt.m)
+ * Optimization Author: Mingjia Li
+ * Date: December 2025
+ * License: GNU General Public License (GPL)
+ * ==============================================================================
+ * * DESCRIPTION:
+ * This is a high-performance C-MEX implementation of the original 'clap_filt.m'.
+ * It applies Combined Low-pass Adaptive Phase (CLAP) filtering using a sliding 
+ * window approach.
  *
- * Compile: mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3 " LDFLAGS="$LDFLAGS -fopenmp" clap_filt_mex.c
+ * OPTIMIZATION STRATEGY:
+ * 1. FFT Offloading: Replaced MATLAB's 'fft2' and 'ifft2' with a custom, highly 
+ * optimized C implementation to reduce interpreter overhead.
+ * 2. Trigonometric Lookup Tables (LUT): Pre-computes sine/cosine tables for DFT 
+ * operations, removing repeated `sin()`/`cos()` calls inside the inner loops.
+ * 3. Separable Convolution: Decomposed the 2D Gaussian kernel (7x7) into two 
+ * 1D kernels (7x1), reducing filtering complexity from O(K^2) to O(2K).
+ * 4. OpenMP Parallelization: Parallelized the processing of sliding windows 
+ * (patches) to fully utilize multi-core CPUs.
+ * * COMPILATION:
+ * mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" clap_filt_mex.c
+ * ==============================================================================
  */
 
 #include "mex.h"

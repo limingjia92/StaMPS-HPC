@@ -1,15 +1,29 @@
 /*
- * ps_topofit_mex.c
- * Final Stability Version
+ * ==============================================================================
+ * File: ps_topofit_mex.c
+ * Original Author: Andy Hooper (ps_topofit.m)
+ * Optimization Author: Mingjia Li
+ * Date: December 2025
+ * License: GNU General Public License (GPL)
+ * ==============================================================================
+ * * DESCRIPTION:
+ * This is a high-performance C-MEX implementation of the original 'ps_topofit.m'.
+ * It performs range error estimation using a coarse search followed by a linear 
+ * inversion.
  *
- * Revisions:
- * 1. Matches MATLAB's 'sum(psdph==0)==0' strict logic (UNAMBIGUOUS).
- * 2. FORCES DOUBLE PRECISION ACCUMULATION in Coarse Search for numerical stability, 
- * even when input is single. This is a compromise to prevent accumulated K_ps
- * errors (cycle slips) which diverge in the iterative MATLAB loop.
- * 3. Maintains Double precision for Trigonometry.
- *
- * Compile: mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" ps_topofit_mex.c
+ * OPTIMIZATION STRATEGY:
+ * 1. Hybrid Parallelization: Utilizes OpenMP to parallelize the pixel-wise loop, 
+ * replacing MATLAB's serial execution.
+ * 2. Precision Management: FORCES DOUBLE PRECISION on accumulators (sum_res_r/i) 
+ * and trigonometric calculations even when input is Single. This prevents 
+ * numerical divergence and 'cycle slips' seen in pure floating-point C ports.
+ * 3. Strict Logic Consistency: Implemented strict magnitude checks (sum(psdph==0)==0)
+ * to strictly match MATLAB's ambiguous phase rejection logic.
+ * 4. Memory Optimization: Pre-allocated thread-local buffers to minimize heap 
+ * allocation overhead during the parallel search.
+ * * COMPILATION:
+ * mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" ps_topofit_mex.c
+ * ==============================================================================
  */
 
 #include "mex.h"

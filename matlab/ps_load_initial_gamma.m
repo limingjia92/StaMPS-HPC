@@ -75,7 +75,7 @@ master_day=datenum(year,month,monthday);
 %     master_master_flag='1' % yes, null master-master ifg provided
 % end
 
-%% modified by mingjia, 2024.04
+%% modified by MJ, 2024.04
 master_ix=sum(day<master_day)+1;
 if master_ix <= length(day) 
     if day(master_ix)~=master_day

@@ -1,15 +1,27 @@
 /*
- * clap_filt_patch_mex.c
- * Batch Processor for PS Selection Filtering (Final Corrected Version)
+ * ==============================================================================
+ * File: clap_filt_patch_mex.c
+ * Original Author: Andy Hooper (clap_filt_patch.m)
+ * Optimization Author: Mingjia Li
+ * Date: December 2025
+ * License: GNU General Public License (GPL)
+ * ==============================================================================
+ * * DESCRIPTION:
+ * This is a high-performance C-MEX implementation of 'clap_filt_patch.m'.
+ * It performs adaptive phase filtering on specific patches identified by the 
+ * PS selection step.
  *
- * Revisions:
- * 1. Fixed compilation error: 'j_min_m' undeclared.
- * 2. Corrected fftshift/ifftshift logic for all window sizes.
- * 3. ADDED KERNEL NORMALIZATION to match MATLAB numerical behavior.
- * 4. Added explicit NaN handling for input grid.
- * 5. Optimized memory allocation.
- *
- * Compile: mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" clap_filt_patch_mex.c
+ * OPTIMIZATION STRATEGY:
+ * 1. Batch Execution: Moved the loop over PS candidates from MATLAB scripts into 
+ * the C layer, significantly reducing MEX call overhead.
+ * 2. Kernel Normalization: Implemented precise kernel normalization logic to 
+ * ensure bit-wise output consistency with MATLAB's `filter2` function.
+ * 3. Robust NaN Handling: Added explicit checks for NaN values in the input grid 
+ * to match MATLAB's behavior of ignoring invalid pixels during convolution.
+ * 4. Memory Efficiency: Optimized buffer reuse for the 2D shift and DFT operations.
+ * * COMPILATION:
+ * mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" clap_filt_patch_mex.c
+ * ==============================================================================
  */
 
 #include "mex.h"

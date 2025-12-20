@@ -35,7 +35,7 @@ function ps_parms_default()
 %   09/2015 AH: change default weed_neighbours = 'n' 
 %   09/2015 AH: change default max_topo_err = 20 
 %   10/2016 DB: Change other processor type to a warning not an error.
-%   12/2025 Mingjia: Change default weed_standard_dev=1.2 for SBAS
+%   12/2025 MJ: Change default weed_standard_dev=1.2 for SBAS
 %   ======================================================================
 
 
