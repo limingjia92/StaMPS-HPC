@@ -58,6 +58,27 @@ This release focuses on resolving the critical computational bottlenecks in the 
 * **Changes:** * Fixed critical bugs related to patch merging logic.
     * Streamlined the preparation phase for unwrapping (efficiency patches).
 
+### [Step merge] Patch Merging (`ps_merge_patches.m`)
+**Status:** **Architectural Refactoring & Parallelization**
+* **The Bottleneck:** The original code processed data "Patch-by-Patch", loading entire workspaces into RAM and appending to global arrays. This caused massive CPU overhead from dynamic resizing and memory thrashing (16,000+ CPU seconds).
+* **The Solution:** Implemented a **Variable-Centric Parallel Architecture**.
+    1. **Phase 1 (Meta-Scan):** Quickly pre-calculates global indices and sort order without loading heavy data.
+    2. **Phase 2 (Parallel Stream):** Processes one variable (e.g., `ph`, `inc`) at a time. Inside each variable task, patches are loaded and processed in parallel using `parfor`.
+* **Key Technique:** utilized **Cell Arrays** as intermediate buffers to resolve MATLAB `parfor` variable classification errors and maintain memory stability.
+* **Performance:** * **Wall Clock:** **~2.8x Faster** (29m $\to$ 10m).
+    * **CPU Efficiency:** **~11.6x Improvement** in effective computation (User Time).
+    * **Memory:** Maintained consistent footprint (~15.8GB) matching the original serial version.
+    
+### [Auxiliary] Interferogram Noise Estimation (`ps_calc_ifg_std.m`)
+**Status:** **Mathematical Optimization & Memory Efficiency**
+* **The Bottleneck:** The original implementation relied on computationally expensive complex exponential arithmetic (`exp(-j*...)`) and `angle()` functions to compute phase residuals. This generated massive temporary complex arrays, stressing memory bandwidth and CPU FPU.
+* **The Solution:** Refactored the core logic to operate entirely in the **Real Number Domain**.
+* **Key Optimizations:**
+    * **Direct Phase Arithmetic:** Replaced complex multiplications with simple subtraction of phase components (`phase - correction`).
+    * **Fast Wrapping:** Implemented a lightweight `mod(x, 2*pi)` logic to replace the slower `angle(complex)` function calls.
+    * **Memory Reduction:** Eliminated the creation of massive intermediate complex matrices.
+* **Performance:** * **Execution Time:** Reduced from **171s to 41s** (~4.2x Speedup).
+    * **Accuracy:** Validated against the original version with negligible deviation (Max Diff < 1e-5 degrees).
 ---
 
 ## 4. Benchmark Results

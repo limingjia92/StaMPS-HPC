@@ -275,7 +275,7 @@ if reest_flag~=1
     if isfield(pm, 'ph_grid')
         input_grid = pm.ph_grid; 
         if ndims(input_grid) == 2 && n_ifg > 1
-             error('pm.ph_grid 维度不足，请检查数据加载逻辑');
+             error('pm.ph_grid dimision not fit');
         end
         if size(input_grid, 3) ~= n_ifg
              if size(input_grid, 3) == ps.n_ifg
@@ -288,7 +288,7 @@ if reest_flag~=1
     
     target_ij = pm.grid_ij(ix, :);
 
-    % 调用 MEX
+    % use MEX
     ph_patch2 = clap_filt_patch_mex(...
         double(input_grid), ... 
         double(target_ij), ...
@@ -299,7 +299,7 @@ if reest_flag~=1
         double(n_win), ...
         B_1d);
         
-    clear input_grid % 及时释放    
+    clear input_grid % release memory
 
     % Prepare Topo Fit Inputs
     bp=load(bpname);
@@ -332,11 +332,11 @@ if reest_flag~=1
         coh_ps2 = zeros(n_ps,1);
         ph_res2 = zeros(n_ps,n_ifg);
         
-        ph_sub = ph(ix, :); % 确保取子集
-        bperp_sub = bperp_mat(:, :); % 确保取子集
+        ph_sub = ph(ix, :); 
+        bperp_sub = bperp_mat(:, :); 
         
         for i=1:n_ps
-            psdph = ph_sub(i,:).*conj(ph_patch2(i,:)); % 使用 MEX 算出来的 patch
+            psdph = ph_sub(i,:).*conj(ph_patch2(i,:)); % use patch from MEX
             psdph = psdph./abs(psdph);
             [Kopt,Copt,cohopt,ph_residual] = ps_topofit(psdph(ifg_index).', bperp_sub(i,ifg_index).', pm.n_trial_wraps, 'n');
             
