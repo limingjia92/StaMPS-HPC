@@ -5,7 +5,7 @@ function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_ov
 %   ======================================================================
 %   Author:        Mingjia Li
 %   Date:          January 2026
-%   Version:       1.0 (HPC-Hybrid)
+%   Version:       1.0 
 %   License:       GPL v3.0 (Inherited from StaMPS)
 
 % Usage:
@@ -198,21 +198,57 @@ end
 function write_kml_header(fid)
     fprintf(fid, '<?xml version="1.0" encoding="UTF-8"?>\n');
     fprintf(fid, '<kml xmlns="http://www.opengis.net/kml/2.2">\n');
-    fprintf(fid, '<Document>\n<name>StaMPS Patches (Skewed)</name>\n');
-    fprintf(fid, '<Style id="pStyle"><LineStyle><color>ff0000ff</color><width>2</width></LineStyle><PolyStyle><color>00ffffff</color></PolyStyle></Style>\n');
+    fprintf(fid, '<Document>\n');
+    fprintf(fid, '  <name>StaMPS Patches</name>\n');
+    fprintf(fid, '  <Style id="centeredLabelStyle">\n');
+    fprintf(fid, '    <IconStyle>\n');
+    fprintf(fid, '      <scale>0</scale>\n');
+    fprintf(fid, '    </IconStyle>\n');
+    fprintf(fid, '    <LabelStyle>\n');
+    fprintf(fid, '      <scale>1.5</scale>\n');  % size of label font 
+    fprintf(fid, '      <color>ff0000ff</color>\n'); % color of label font (red)
+    fprintf(fid, '    </LabelStyle>\n');
+    fprintf(fid, '    <LineStyle>\n');
+    fprintf(fid, '      <color>ff0000ff</color>\n'); % color of line (red)
+    fprintf(fid, '      <width>2</width>\n');  % width of line 
+    fprintf(fid, '    </LineStyle>\n');
+    fprintf(fid, '    <PolyStyle>\n');
+    fprintf(fid, '      <fill>0</fill>\n');     
+    fprintf(fid, '    </PolyStyle>\n');
+    fprintf(fid, '  </Style>\n');
 end
 
 function write_kml_placemark(fid, idx, lons, lats)
-    fprintf(fid, '<Placemark><name>P_%d</name><styleUrl>#pStyle</styleUrl><Polygon><tessellate>1</tessellate><outerBoundaryIs><LinearRing><coordinates>\n', idx);
-    % Loop corners
+    lon_center = mean(lons);
+    lat_center = mean(lats);
+
+    fprintf(fid, '  <Placemark>\n');
+    fprintf(fid, '    <name>PATCH_%d</name>\n', idx);
+    fprintf(fid, '    <description>PATCH_%d</description>\n', idx);
+    fprintf(fid, '    <styleUrl>#centeredLabelStyle</styleUrl>\n'); 
+    fprintf(fid, '    <MultiGeometry>\n');
+    fprintf(fid, '      <Polygon>\n');
+    fprintf(fid, '        <tessellate>1</tessellate>\n');
+    fprintf(fid, '        <outerBoundaryIs>\n');
+    fprintf(fid, '          <LinearRing>\n');
+    fprintf(fid, '            <coordinates>\n');
+    
     for i = 1:4
-        fprintf(fid, '%.6f,%.6f,0\n', lons(i), lats(i));
+        fprintf(fid, '              %.6f,%.6f,0\n', lons(i), lats(i));
     end
-    % Close loop
-    fprintf(fid, '%.6f,%.6f,0\n', lons(1), lats(1)); 
-    fprintf(fid, '</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>\n');
+    fprintf(fid, '              %.6f,%.6f,0\n', lons(1), lats(1));
+    fprintf(fid, '            </coordinates>\n');
+    fprintf(fid, '          </LinearRing>\n');
+    fprintf(fid, '        </outerBoundaryIs>\n');
+    fprintf(fid, '      </Polygon>\n');
+    fprintf(fid, '      <Point>\n');
+    fprintf(fid, '        <coordinates>%.6f,%.6f,0</coordinates>\n', lon_center, lat_center);
+    fprintf(fid, '      </Point>\n');
+    fprintf(fid, '    </MultiGeometry>\n');
+    fprintf(fid, '  </Placemark>\n');
 end
 
 function write_kml_footer(fid)
-    fprintf(fid, '</Document></kml>\n');
+    fprintf(fid, '</Document>\n');
+    fprintf(fid, '</kml>\n');
 end
