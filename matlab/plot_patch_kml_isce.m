@@ -19,7 +19,7 @@ function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_ov
 %   rg_overlap : (Optional) Overlap in Range (Default: 400)
 %   az_overlap : (Optional) Overlap in Azimuth (Default: 400)
 
-    % --- 0. 参数默认值处理 ---
+    % --- 0. Default Parameter Handling ---
     if nargin < 4, rg_overlap = 400; end
     if nargin < 5, az_overlap = 400; end
 
@@ -28,7 +28,7 @@ function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_ov
     fprintf('Data Dir: %s\n', data_dir);
     fprintf('Patches : %d (Rg) x %d (Az)\n', rg_patches, az_patches);
 
-    % --- 1. 读取宽长信息 ---
+    % --- 1. Read Width and Length Information ---
     width_file = fullfile(data_dir, 'width.txt');
     len_file   = fullfile(data_dir, 'len.txt');
 
@@ -39,7 +39,7 @@ function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_ov
     img_width  = load(width_file);
     img_length = load(len_file);
 
-    % --- 2. 定位经纬度文件 ---
+    % --- 2. Locate Longitude/Latitude Files ---
     lon_file = fullfile(data_dir, 'lon.raw');
     lat_file = fullfile(data_dir, 'lat.raw');
 
@@ -47,16 +47,16 @@ function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_ov
         error('Error: lon.raw or lat.raw not found.');
     end
 
-    % --- 3. 初始化 KML ---
+    % --- 3. Initialize KML ---
     kml_filename = 'patches_ISCE.kml';
     fid_kml = fopen(kml_filename, 'w');
     write_kml_header(fid_kml);
 
-    % 打开文件 (ISCE Little Endian)
+    % Open files (ISCE Little Endian)
     fid_lon = fopen(lon_file, 'r', 'l'); 
     fid_lat = fopen(lat_file, 'r', 'l'); 
 
-    % --- 4. 循环计算 Patch ---
+    % --- 4. Loop to Calculate Patches ---
     width_p = floor(img_width / rg_patches);
     length_p = floor(img_length / az_patches);
     
@@ -86,7 +86,7 @@ function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_ov
             read_start_az = max(1, start_az); 
             read_end_az   = min(img_length, end_az);
 
-            % --- 核心：仿射拟合推算角点 ---
+            % --- Core: Affine fitting to estimate corners ---
             corners = estimate_corners_affine(fid_lon, fid_lat, img_width, ...
                                               read_start_rg, read_end_rg, ...
                                               read_start_az, read_end_az, ...
@@ -106,7 +106,7 @@ function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_ov
         end
     end
 
-    % --- 5. 清理 ---
+    % --- 5. Cleanup ---
     fclose(fid_lon); fclose(fid_lat);
     write_kml_footer(fid_kml); fclose(fid_kml);
     fprintf('Success! Saved to: %s\n', fullfile(pwd, kml_filename));
@@ -118,14 +118,14 @@ function predicted_corners = estimate_corners_affine(fid_lon, fid_lat, full_widt
                                                      r_min, r_max, a_min, a_max, ...
                                                      target_r_min, target_r_max, target_a_min, target_a_max)
     % ESTIMATE_CORNERS_AFFINE
-    % 1. 在 Patch 范围内采样有效点
-    % 2. 拟合平面模型 Lon = f(r, a), Lat = g(r, a)
-    % 3. 推算目标角点的经纬度
+    % 1. Sample valid points within the Patch range
+    % 2. Fit planar model Lon = f(r, a), Lat = g(r, a)
+    % 3. Estimate longitude/latitude of target corners
     
     predicted_corners = [];
     
-    % Step 1: 稀疏采样 (Grid Sampling)
-    % 为了速度，不在每个像素都读。在 Range 和 Azimuth 方向各采 ~20 个点
+    % Step 1: Sparse Sampling (Grid Sampling)
+    % For speed, do not read every pixel. Sample ~20 points in both Range and Azimuth directions.
     n_samples = 20; 
     step_r = max(1, floor((r_max - r_min) / n_samples));
     step_a = max(1, floor((a_max - a_min) / n_samples));
@@ -135,13 +135,13 @@ function predicted_corners = estimate_corners_affine(fid_lon, fid_lat, full_widt
     val_lons = [];
     val_lats = [];
     
-    % 遍历采样点
+    % Iterate through sample points
     for a = a_min:step_a:a_max
         for r = r_min:step_r:r_max
              l_val = get_val_at_pixel(fid_lon, full_width, r, a);
              L_val = get_val_at_pixel(fid_lat, full_width, r, a);
              
-             % 过滤无效值 (0)
+             % Filter invalid values (0)
              if abs(l_val) > 1e-6 && abs(L_val) > 1e-6
                  r_coords = [r_coords; r]; %#ok<AGROW>
                  a_coords = [a_coords; a]; %#ok<AGROW>
@@ -151,12 +151,12 @@ function predicted_corners = estimate_corners_affine(fid_lon, fid_lat, full_widt
         end
     end
     
-    % 如果有效点太少，无法拟合
+    % If too few valid points, fitting is impossible
     if length(r_coords) < 10
         return;
     end
     
-    % Step 2: 最小二乘法拟合 (Least Squares Fit)
+    % Step 2: Least Squares Fit
     % Model: Val = c1 * r + c2 * a + c3
     % Matrix: [r, a, 1] * [c1; c2; c3] = Val
     
@@ -168,15 +168,15 @@ function predicted_corners = estimate_corners_affine(fid_lon, fid_lat, full_widt
     % Fit Latitude
     coeffs_lat = A \ val_lats;
     
-    % Step 3: 推算四个角点 (Predict Corners)
+    % Step 3: Predict Four Corners
     % Order: TL, TR, BR, BL (ensure counter-clockwise or loop)
     % Corner 1: (min_r, min_a) -> Top-Left (usually)
     % Corner 2: (max_r, min_a) -> Top-Right
     % Corner 3: (max_r, max_a) -> Bottom-Right
     % Corner 4: (min_r, max_a) -> Bottom-Left
     
-    % 注意：这里使用的是 target_r/a (包含 overlap 的理论边界)
-    % 即使这些点在原始数据中是 0 或超出范围，拟合公式也能给出正确的推算值
+    % Note: Using target_r/a here (theoretical boundaries including overlap)
+    % Even if these points are 0 or out of range in raw data, the fitting formula yields correct estimates
     target_corners_r = [target_r_min; target_r_max; target_r_max; target_r_min];
     target_corners_a = [target_a_min; target_a_min; target_a_max; target_a_max];
     

@@ -19,7 +19,7 @@ function plot_patch_kml_gamma(data_dir, rg_patches, az_patches, rg_overlap, az_o
 %   rg_overlap : (Optional) Overlap in Range (Default: 400)
 %   az_overlap : (Optional) Overlap in Azimuth (Default: 400)
 
-    % --- 0. 参数默认值处理 ---
+    % --- 0. Default Parameter Handling ---
     if nargin < 4
         rg_overlap = 400;
     end
@@ -32,11 +32,11 @@ function plot_patch_kml_gamma(data_dir, rg_patches, az_patches, rg_overlap, az_o
     fprintf('Patches: %d (Rg) x %d (Az)\n', rg_patches, az_patches);
     fprintf('Overlap: %d (Rg), %d (Az)\n', rg_overlap, az_overlap);
 
-    % --- 1. 搜索元数据文件 (Width/Length) ---
+    % --- 1. Search Metadata File (Width/Length) ---
     rsc_file = '';
     file_type = ''; % 'par' or 'diff_par'
 
-    % 1.1 尝试搜索 PS 模式路径 (data_dir/rslc/*.par)
+    % 1.1 Try searching for PS mode path (data_dir/rslc/*.par)
     par_files_ps = dir(fullfile(data_dir, 'rslc', '*.par'));
     if ~isempty(par_files_ps)
         rsc_file = fullfile(par_files_ps(1).folder, par_files_ps(1).name);
@@ -44,7 +44,7 @@ function plot_patch_kml_gamma(data_dir, rg_patches, az_patches, rg_overlap, az_o
         fprintf('Found PS parameter file: %s\n', par_files_ps(1).name);
     end
 
-    % 1.2 如果没找到，尝试搜索 SBAS 模式路径 (data_dir/SMALL_BASELINES/rslc/*.par)
+    % 1.2 If not found, try searching for SBAS mode path (data_dir/SMALL_BASELINES/rslc/*.par)
     if isempty(rsc_file)
         par_files_sbas = dir(fullfile(data_dir, 'SMALL_BASELINES', 'rslc', '*.par'));
         if ~isempty(par_files_sbas)
@@ -54,7 +54,7 @@ function plot_patch_kml_gamma(data_dir, rg_patches, az_patches, rg_overlap, az_o
         end
     end
 
-    % 1.3 如果还没找到，尝试搜索 GEO 路径 (data_dir/geo/*.diff_par)
+    % 1.3 If still not found, try searching for GEO path (data_dir/geo/*.diff_par)
     if isempty(rsc_file)
         diff_par_files = dir(fullfile(data_dir, 'geo', '*.diff_par'));
         if ~isempty(diff_par_files)
@@ -64,7 +64,7 @@ function plot_patch_kml_gamma(data_dir, rg_patches, az_patches, rg_overlap, az_o
         end
     end
 
-    % 错误处理
+    % Error handling
     if isempty(rsc_file)
         error('Error: Could not find metadata file. Checked:\n - %s\n - %s\n - %s', ...
             fullfile(data_dir, 'rslc', '*.par'), ...
@@ -72,11 +72,11 @@ function plot_patch_kml_gamma(data_dir, rg_patches, az_patches, rg_overlap, az_o
             fullfile(data_dir, 'geo', '*.diff_par'));
     end
 
-    % --- 2. 读取宽长信息 ---
+    % --- 2. Read Dimensions (Width/Length) ---
     [img_width, img_length] = read_metadata_dimensions(rsc_file, file_type);
     fprintf('Image Dimensions: %d (Width) x %d (Length)\n', img_width, img_length);
 
-    % --- 3. 自动定位经纬度文件 ---
+    % --- 3. Automatically Locate Longitude/Latitude Files ---
     geo_dir = fullfile(data_dir, 'geo');
     lon_list = dir(fullfile(geo_dir, '*.lon'));
     lat_list = dir(fullfile(geo_dir, '*.lat'));
@@ -88,7 +88,7 @@ function plot_patch_kml_gamma(data_dir, rg_patches, az_patches, rg_overlap, az_o
     lon_file = fullfile(lon_list(1).folder, lon_list(1).name);
     lat_file = fullfile(lat_list(1).folder, lat_list(1).name);
 
-    % --- 4. 初始化 KML ---
+    % --- 4. Initialize KML ---
     kml_filename = 'patches_GAMMA.kml';
     fid_kml = fopen(kml_filename, 'w');
     if fid_kml == -1
@@ -97,11 +97,11 @@ function plot_patch_kml_gamma(data_dir, rg_patches, az_patches, rg_overlap, az_o
 
     write_kml_header(fid_kml);
 
-    % 打开经纬度文件 (使用 Big Endian 读取 float)
+    % Open coordinate files (Read float using Big Endian)
     fid_lon = fopen(lon_file, 'r', 'b'); 
     fid_lat = fopen(lat_file, 'r', 'b'); 
 
-    % --- 5. 循环计算 Patch 范围 ---
+    % --- 5. Loop to Calculate Patch Ranges ---
     width_p = floor(img_width / rg_patches);
     length_p = floor(img_length / az_patches);
     
@@ -149,7 +149,7 @@ function plot_patch_kml_gamma(data_dir, rg_patches, az_patches, rg_overlap, az_o
         end
     end
 
-    % --- 6. 清理 ---
+    % --- 6. Cleanup ---
     fclose(fid_lon);
     fclose(fid_lat);
     write_kml_footer(fid_kml);
@@ -161,7 +161,7 @@ end
 %% --- Helper Functions ---
 
 function val = get_val_at_pixel(fid, width, r, a)
-    % 快速读取指定行列的数值 (避免读取整个文件)
+    % Quickly read value at specific pixel (avoid reading the whole file)
     % offset = ((Line-1) * Width + (Col-1)) * 4 bytes
     offset = ((a - 1) * width + (r - 1)) * 4;
     status = fseek(fid, offset, 'bof');
@@ -174,7 +174,7 @@ function val = get_val_at_pixel(fid, width, r, a)
 end
 
 function [width, len] = read_metadata_dimensions(filepath, file_type)
-    % 解析 GAMMA 参数文件获取尺寸
+    % Parse GAMMA parameter file to get dimensions
     fid = fopen(filepath, 'r');
     content = textscan(fid, '%s', 'Delimiter', '\n');
     fclose(fid);
@@ -183,7 +183,7 @@ function [width, len] = read_metadata_dimensions(filepath, file_type)
     width = 0;
     len = 0;
     
-    % 定义要查找的关键字
+    % Define keywords to search
     if strcmp(file_type, 'par')
         key_width = 'range_samples';
         key_len   = 'azimuth_lines';
@@ -192,11 +192,11 @@ function [width, len] = read_metadata_dimensions(filepath, file_type)
         key_len   = 'map_azimuth_lines';
     end
 
-    % 解析逻辑
+    % Parsing logic
     for i = 1:length(lines)
         line = lines{i};
         if contains(line, key_width)
-            % 提取数字: 查找行中的所有数字，取第一个非空的
+            % Extract number: Find all digits in the line, take the first non-empty one
             tokens = regexp(line, '\d+', 'match');
             if ~isempty(tokens)
                 width = str2double(tokens{1});
@@ -226,7 +226,7 @@ function write_kml_header(fid)
     fprintf(fid, '    </IconStyle>\n');
     fprintf(fid, '    <LabelStyle>\n');
     fprintf(fid, '      <scale>1.5</scale>\n');  % size of label font 
-    fprintf(fid, '      <color>ff0000ff</color>\n'); % color of label font (red)
+    fprintf(fid, '      <color>ff0000ff</color>\n'); % color of label font (red -> AA BB GG RR)
     fprintf(fid, '    </LabelStyle>\n');
     fprintf(fid, '    <LineStyle>\n');
     fprintf(fid, '      <color>ff0000ff</color>\n'); % color of line (red)
