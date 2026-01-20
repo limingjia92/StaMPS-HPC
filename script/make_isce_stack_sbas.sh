@@ -97,11 +97,11 @@ if [ "$NUM_DATES" -lt 2 ]; then
     exit 1
 fi
 
-# Select the FIRST date as the "Super Master" for Geometry Reference
+# Select the FIRST date as the "Super Reference" for Geometry Reference
 # In SBAS, we need one common grid geometry. We pick the first one.
-SUPER_MASTER=${DATE_LIST[0]}
+SUPER_REFERENCE=${DATE_LIST[0]}
 echo "Found $NUM_DATES dates."
-echo "Selected Super Master for Geometry: $SUPER_MASTER"
+echo "Selected Super Reference for Geometry: $SUPER_REFERENCE"
 
 cd "$WORK_DIR" || exit 1
 mkdir -p "$SB_DIR"
@@ -109,7 +109,7 @@ mkdir -p "$SB_DIR"
 
 # --- Step 1: Geometry & Metadata Setup ---
 echo "-----------------------------------------------------------------"
-echo "Step 1: Setting up Geometry (Super Master: $SUPER_MASTER)"
+echo "Step 1: Setting up Geometry (Super Reference: $SUPER_REFERENCE)"
 
 
 echo "$LAMBDA" > "$SB_DIR/lambda.1.in"
@@ -194,28 +194,28 @@ if [ ! -f "u.raw" ]; then
 fi
 
 # 1.4 Get Dimensions
-# We need to link the Super Master SLC temporarily to get width/length
+# We need to link the Super Reference SLC temporarily to get width/length
 mkdir -p tmp_ref
 cd tmp_ref
-ln -sf "$SLC_STACK_PATH/$SUPER_MASTER/$SUPER_MASTER.slc$SLC_SUFFIX" .
-ln -sf "$SLC_STACK_PATH/$SUPER_MASTER/$SUPER_MASTER.slc.hdr" . 2>/dev/null
-ln -sf "$SLC_STACK_PATH/$SUPER_MASTER/$SUPER_MASTER.hdr" . 2>/dev/null
+ln -sf "$SLC_STACK_PATH/$SUPER_REFERENCE/$SUPER_REFERENCE.slc$SLC_SUFFIX" .
+ln -sf "$SLC_STACK_PATH/$SUPER_REFERENCE/$SUPER_REFERENCE.slc.hdr" . 2>/dev/null
+ln -sf "$SLC_STACK_PATH/$SUPER_REFERENCE/$SUPER_REFERENCE.hdr" . 2>/dev/null
 
 # Generate XML if needed
 rm -f *.vrt *.xml
-gdal_translate -of VRT "$SUPER_MASTER.slc$SLC_SUFFIX" "$SUPER_MASTER.slc$SLC_SUFFIX.vrt"
-gdal2isce_xml.py -i "$SUPER_MASTER.slc$SLC_SUFFIX.vrt"
+gdal_translate -of VRT "$SUPER_REFERENCE.slc$SLC_SUFFIX" "$SUPER_REFERENCE.slc$SLC_SUFFIX.vrt"
+gdal2isce_xml.py -i "$SUPER_REFERENCE.slc$SLC_SUFFIX.vrt"
 
 cd .. # Back to SMALL_BASELINES
-get_LengthWidth.py "tmp_ref/$SUPER_MASTER.slc$SLC_SUFFIX"
+get_LengthWidth.py "tmp_ref/$SUPER_REFERENCE.slc$SLC_SUFFIX"
 rm -rf tmp_ref # Cleanup
 
 # --- Step 3: Baselines ---
 echo "-----------------------------------------------------------------"
 echo "Step 3: Processing Baselines"
-# We calculate baselines relative to our Super Master ($SUPER_MASTER)
+# We calculate baselines relative to our Super Reference ($SUPER_REFERENCE)
 
-step_baseline_stack.py -i "$BASELINE_PATH" -m "$SUPER_MASTER"
+step_baseline_stack.py -i "$BASELINE_PATH" -m "$SUPER_REFERENCE"
 
 # --- Step 4: Interferogram Generation (Auto-Pairing Loop) ---
 echo "-----------------------------------------------------------------"
@@ -227,7 +227,7 @@ COUNT=${#DATES[@]}
 
 # Loop through dates
 for (( i=0; i<$COUNT; i++ )); do
-    MASTER_DATE=${DATES[$i]}
+    REFERENCE_DATE=${DATES[$i]}
     
     # Inner loop for neighbors
     for (( j=1; j<=$NEIGHBORS; j++ )); do
@@ -235,23 +235,23 @@ for (( i=0; i<$COUNT; i++ )); do
         
         # Check bound
         if [ $TARGET_IDX -lt $COUNT ]; then
-            SLAVE_DATE=${DATES[$TARGET_IDX]}
+            SECONDARY_DATE=${DATES[$TARGET_IDX]}
             
-            # === Process Pair: MASTER_DATE - SLAVE_DATE ===
-            PAIR_DIR="${MASTER_DATE}_${SLAVE_DATE}"
+            # === Process Pair: REFERENCE_DATE - SECONDARY_DATE ===
+            PAIR_DIR="${REFERENCE_DATE}_${SECONDARY_DATE}"
             echo "Processing Pair: $PAIR_DIR"
             
             mkdir -p "$PAIR_DIR"
             cd "$PAIR_DIR" || exit 1
             
             # 3.1 Define Source Paths
-            M_SLC_SRC="$SLC_STACK_PATH/$MASTER_DATE/$MASTER_DATE.slc$SLC_SUFFIX"
-            S_SLC_SRC="$SLC_STACK_PATH/$SLAVE_DATE/$SLAVE_DATE.slc$SLC_SUFFIX"
+            M_SLC_SRC="$SLC_STACK_PATH/$REFERENCE_DATE/$REFERENCE_DATE.slc$SLC_SUFFIX"
+            S_SLC_SRC="$SLC_STACK_PATH/$SECONDARY_DATE/$SECONDARY_DATE.slc$SLC_SUFFIX"
             
             # 3.2 Link SLCs
-            # Link Master
+            # Link Reference
             ln -sf "$M_SLC_SRC" reference.slc
-            # Link Slave
+            # Link Secondary
             ln -sf "$S_SLC_SRC" secondary.slc
             
             # Ensure XML/VRT exists for ISCE (imageMath needs them)
@@ -276,8 +276,8 @@ for (( i=0; i<$COUNT; i++ )); do
                 fi
             }
             
-            ensure_xml "$MASTER_DATE" "$M_SLC_SRC" "reference.slc"
-            ensure_xml "$SLAVE_DATE"  "$S_SLC_SRC" "secondary.slc"
+            ensure_xml "$REFERENCE_DATE" "$M_SLC_SRC" "reference.slc"
+            ensure_xml "$SECONDARY_DATE"  "$S_SLC_SRC" "secondary.slc"
             
             # 3.3 Compute Interferogram
             SAVE_IFG="isce_minrefdem.int"

@@ -15,10 +15,10 @@
 
 # --- Function: Print Usage and Exit ---
 print_usage() {
-    echo "Usage: $(basename "$0") master_date data_dir work_dir [da_thresh] [rg_patches] [az_patches] [jobmaxnum] [rg_overlap] [az_overlap] [maskfile]"
+    echo "Usage: $(basename "$0") reference_date data_dir work_dir [da_thresh] [rg_patches] [az_patches] [jobmaxnum] [rg_overlap] [az_overlap] [maskfile]"
     echo ""
     echo "Arguments:"
-    echo "  master_date       : Master image date (e.g., 20191126)"
+    echo "  reference_date    : Reference image date (e.g., 20191126)"
     echo "  data_dir          : Path to input data directory (must follow structure below)"
     echo "  work_dir          : Path to output working directory"
     echo "  da_thresh         : Amplitude dispersion threshold (lower = stricter & fewer points)"
@@ -59,7 +59,7 @@ if [ $# -lt 3 ]; then
 fi
 
 # --- Initialize Variables ---
-MASTER_DATE=$1
+REFERENCE_DATE=$1
 DATA_DIR=$2
 WORK_DIR=$3
 
@@ -79,7 +79,7 @@ echo "   StaMPS Pre-processor (GAMMA Interface) - HPC Optimized"
 echo "   Base Logic: Andy Hooper (2012)"
 echo "   Parallelization: Mingjia Li (2025)"
 echo "================================================================="
-echo "Master Date: $MASTER_DATE"
+echo "Reference Date: $REFERENCE_DATE"
 echo "Data Dir   : $DATA_DIR"
 echo "Work Dir   : $WORK_DIR"
 echo "Patches    : $PATCHES_RG (Range) x $PATCHES_AZ (Azimuth)"
@@ -102,13 +102,13 @@ cd "$WORK_DIR" || exit 1
 if [ -d "$DATA_DIR/SMALL_BASELINES" ]; then
     echo "Mode       : Small Baselines (SB)"
     SB_FLAG=1
-    # Find the master parameter file in SB structure
-    RSC_FILE=$(ls "$DATA_DIR"/SMALL_BASELINES/*/"$MASTER_DATE".*slc.par | head -n 1)
+    # Find the reference parameter file in SB structure
+    RSC_FILE=$(ls "$DATA_DIR"/SMALL_BASELINES/*/"$REFERENCE_DATE".*slc.par | head -n 1)
 else
     echo "Mode       : Persistent Scatterers (PS)"
     SB_FLAG=0
-    # Find the master parameter file in PS structure
-    RSC_FILE=$(ls "$DATA_DIR"/*slc/"$MASTER_DATE".*slc.par | head -n 1)
+    # Find the reference parameter file in PS structure
+    RSC_FILE=$(ls "$DATA_DIR"/*slc/"$REFERENCE_DATE".*slc.par | head -n 1)
 fi
 
 echo "Param File : $RSC_FILE"
@@ -315,6 +315,11 @@ else
     exit 1
 fi
 
+# 4. pscheading.in
+ls "$DATA_DIR"/*/*dem_par > pscheading.in 2>/dev/null
+ls "$DATA_DIR"/*/lv_theta >> pscheading.in 2>/dev/null
+ls "$DATA_DIR"/*/lv_phi >> pscheading.in 2>/dev/null
+
 # --- Parallel Execution ---
 echo "-----------------------------------------------------------------"
 echo "Step 4: Parallel Processing (Max Jobs: $MAX_JOBS)"
@@ -386,7 +391,16 @@ for ((i=1; i<=TOTAL_PATCHES; ++i)); do
         echo "pscphase $WORK_DIR/pscphase.in pscands.1.ij pscands.1.ph" >> "$LOG_FILE"
         pscphase "$WORK_DIR/pscphase.in" pscands.1.ij pscands.1.ph >> "$LOG_FILE" 2>&1
 
-
+        # 5. Extract Heading and Incidence angles (pscheading) - Optional
+        line_count=$(wc -l < "$WORK_DIR/pscheading.in")
+        if [ "$line_count" -eq 3 ]; then
+            echo "" >> "$LOG_FILE"
+            echo "pscheading $WORK_DIR/pscheading.in pscands.1.ll pscands.1.head pscands.1.inc" >> "$LOG_FILE"
+            pscheading "$WORK_DIR/pscheading.in" pscands.1.ll pscands.1.head pscands.1.inc >> "$LOG_FILE" 2>&1
+        else
+            echo "" >> "$LOG_FILE"
+            echo "Skipping pscheading, need result file from look_vector" >> "$LOG_FILE"
+        fi
         
         # Return token
         echo >&1001

@@ -138,7 +138,6 @@ int main(int argc, char* argv[]) {
             cout << "  precision(input) s or f (default)" << endl;
             cout << "  byteswap   (input) 1 for to swap bytes, 0 otherwise (default)" << endl;
             cout << "  maskfile   (input)  mask rows and columns (optional)" << endl;
-            cout << "  master amplitude (input) in case files in parmfile are ifgs not SLCs (optional)" << endl;
             throw "";
         }
 
@@ -182,23 +181,23 @@ int main(int argc, char* argv[]) {
             maskfilename = "";
         else maskfilename = argv[8];
 
-        char masterampfilename[256] = "0000";
-        char masteramp_exists = 0;
+        char referenceampfilename[256] = "0000";
+        char referenceamp_exists = 0;
         if (argc < 10) {
         }
         else {
-            ifstream masterparmfile(argv[9], ios::in);
-            if (!masterparmfile.is_open()) {
+            ifstream referenceparmfile(argv[9], ios::in);
+            if (!referenceparmfile.is_open()) {
                 cout << "Error opening file " << argv[9] << "\n";
                 throw "";
             }
-            masterparmfile >> masterampfilename;
+            referenceparmfile >> referenceampfilename;
         }
 
-        ifstream masterampfile(masterampfilename, ios::in);
-        if (masterampfile.is_open()) {
-            masteramp_exists = 1;
-            cout << "opening " << masterampfilename << "...\n";
+        ifstream referenceampfile(referenceampfilename, ios::in);
+        if (referenceampfile.is_open()) {
+            referenceamp_exists = 1;
+            cout << "opening " << referenceampfilename << "...\n";
         }
 
         ifstream parmfile(argv[1], ios::in);
@@ -336,15 +335,15 @@ int main(int argc, char* argv[]) {
         // Initialize mask buffer (for safety, though it will be read over or ignored if no mask)
         memset(maskbuffer, 0, patch_width * LineInBufferMax);
 
-        // Master Amp Buffer
-        char* masterbuffer = new char[patch_linebytes * LineInBufferMax];
-        complex<float>* masterbufferf = reinterpret_cast<complex<float>*>(masterbuffer);
-        complex<short>* masterbuffers = reinterpret_cast<complex<short>*>(masterbuffer);
+        // Reference Amp Buffer
+        char* referencebuffer = new char[patch_linebytes * LineInBufferMax];
+        complex<float>* referencebufferf = reinterpret_cast<complex<float>*>(referencebuffer);
+        complex<short>* referencebuffers = reinterpret_cast<complex<short>*>(referencebuffer);
 
-        // Initialize master buffer to default 1s
+        // Initialize reference buffer to default 1s
         for (int i = 0; i < patch_width * LineInBufferMax; i++) {
-             if (prec[0] == 's') masterbuffers[i] = 1;
-             else masterbufferf[i] = 1.0f;
+             if (prec[0] == 's') referencebuffers[i] = 1;
+             else referencebufferf[i] = 1.0f;
         }
 
         long long pix_start_abs = (long long)(az_start - 1) * width + (rg_start - 1);
@@ -357,8 +356,8 @@ int main(int argc, char* argv[]) {
         if (mask_exists == 1) {
              maskfile.seekg(pix_start_abs, ios::beg);
         }
-        if (masteramp_exists == 1) {
-            masterampfile.seekg(pos_start, ios::beg);
+        if (referenceamp_exists == 1) {
+            referenceampfile.seekg(pos_start, ios::beg);
         }
 
         int y_global = 0; // Line index within patch (0 to patch_lines-1)
@@ -397,20 +396,20 @@ int main(int argc, char* argv[]) {
                  memset(maskbuffer, 0, patch_width * lines_to_read);
             }
 
-            // Read Master Amp
-            if (masteramp_exists == 1) {
+            // Read Reference Amp
+            if (referenceamp_exists == 1) {
                 for (int l = 0; l < lines_to_read; l++) {
-                    masterampfile.read(&masterbuffer[l * patch_linebytes], patch_linebytes);
-                    masterampfile.seekg(linebytes - patch_linebytes, ios::cur);
+                    referenceampfile.read(&referencebuffer[l * patch_linebytes], patch_linebytes);
+                    referenceampfile.seekg(linebytes - patch_linebytes, ios::cur);
                 }
             } else {
                  for (int i = 0; i < patch_width * lines_to_read; i++) {
-                     if (prec[0] == 's') masterbuffers[i] = 1;
-                     else masterbufferf[i] = 1.0f;
+                     if (prec[0] == 's') referencebuffers[i] = 1;
+                     else referencebufferf[i] = 1.0f;
                      
                      if (byteswap == 1) {
-                         if (prec[0]=='s') cshortswap(&masterbuffers[i]); 
-                         else cfloatswap(&masterbufferf[i]);
+                         if (prec[0]=='s') cshortswap(&referencebuffers[i]); 
+                         else cfloatswap(&referencebufferf[i]);
                      }
                 }
             }
@@ -430,25 +429,25 @@ int main(int argc, char* argv[]) {
                     float sumampsq = 0;
                     int amp_0 = 0;
 
-                    // Fetch and Process Master Amp for this pixel
-                    complex<float> master_amp_val;
-                    int master_idx = l * patch_width + x; 
+                    // Fetch and Process Reference Amp for this pixel
+                    complex<float> reference_amp_val;
+                    int reference_idx = l * patch_width + x; 
 
                     if (prec[0] == 's') {
-                        if (byteswap == 1 && masteramp_exists == 1) { 
-                            cshortswap(&masterbuffers[master_idx]);
+                        if (byteswap == 1 && referenceamp_exists == 1) { 
+                            cshortswap(&referencebuffers[reference_idx]);
                         }
-                        master_amp_val = masterbuffers[master_idx];
+                        reference_amp_val = referencebuffers[reference_idx];
                     } else {
-                        if (byteswap == 1 && masteramp_exists == 1) {
-                            cfloatswap(&masterbufferf[master_idx]);
+                        if (byteswap == 1 && referenceamp_exists == 1) {
+                            cfloatswap(&referencebufferf[reference_idx]);
                         }
-                        master_amp_val = masterbufferf[master_idx];
+                        reference_amp_val = referencebufferf[reference_idx];
                     }
 
-                    float abs_master = abs(master_amp_val);
-                    if (abs_master == 0) abs_master = 1.0f;
-                    float inv_master = 1.0f / abs_master;
+                    float abs_reference = abs(reference_amp_val);
+                    if (abs_reference == 0) abs_reference = 1.0f;
+                    float inv_reference = 1.0f / abs_reference;
 
                     // Loop over files
                     for (int i = 0; i < num_files; i++) {
@@ -468,7 +467,7 @@ int main(int argc, char* argv[]) {
                         }
 
                         // Optimized math: use multiplication
-                        float amp = abs(camp) * calib_inv[i] * inv_master;
+                        float amp = abs(camp) * calib_inv[i] * inv_reference;
 
                         if (amp <= 0.00005f) {
                             amp_0 = 1;
@@ -537,13 +536,13 @@ int main(int argc, char* argv[]) {
         if (mask_exists == 1) {
             maskfile.close();
         }
-        if (masteramp_exists == 1) {
-            masterampfile.close();
+        if (referenceamp_exists == 1) {
+            referenceampfile.close();
         }
 
         delete[] buffer;
         delete[] maskbuffer;
-        delete[] masterbuffer;
+        delete[] referencebuffer;
         delete[] ampfile;
         delete[] calib_factor;
     }

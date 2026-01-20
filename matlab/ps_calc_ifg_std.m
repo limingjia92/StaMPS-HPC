@@ -7,7 +7,7 @@ function [] = ps_calc_ifg_std
 %   ======================================================================
 %   Author:        Mingjia Li
 %   Date:          December 2025
-%   Version:       1.0 (HPC-Math)
+%   Version:       1.0 
 %   License:       GPL v3.0 (Inherited from StaMPS)
 %
 %   PERFORMANCE BENCHMARK (On Test Dataset):

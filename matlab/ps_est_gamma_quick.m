@@ -7,7 +7,7 @@ function [] = ps_est_gamma_quick(restart_flag)
 %   ======================================================================
 %   Author:        Mingjia Li
 %   Date:          December 2025
-%   Version:       1.0 (HPC-Hybrid)
+%   Version:       1.0 
 %   License:       GPL v3.0 (Inherited from StaMPS)
 %
 %   PERFORMANCE BENCHMARK (On Test Dataset):

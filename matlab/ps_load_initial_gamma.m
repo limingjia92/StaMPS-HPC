@@ -1,5 +1,6 @@
 function []=ps_load_initial_gamma(endian)
-%PS_LOAD_INITIAL_GAMMA Initial load of files into matlab workspace
+%PS_LOAD_INITIAL_GAMMA 
+%   Initializes the PS workflow by load files using GAMMA outputs
 %
 %   Andy Hooper, Dec 2012
 %
@@ -19,7 +20,7 @@ end
 
 %NB IFGS assumed in ascending date order
 logit;
-logit('Loading data into matlab...')
+logit('Loading data into matlab from GAMMA...')
 
 phname=['./pscands.1.ph']; % for each PS candidate, a float complex value for each ifg
 ijname=['./pscands.1.ij']; % ID# Azimuth# Range# 1 line per PS candidate
@@ -115,7 +116,7 @@ se=readparm(rslcpar,'sar_to_earth_center');
 re=readparm(rslcpar,'earth_radius_below_sensor');
 rgc=readparm(rslcpar,'center_range_slc');
 naz=readparm(rslcpar,'azimuth_lines');
-prf=readparm(rslcpar,'prf');
+prf=readparm(rslcpar,'prf');    
 
 
 mean_az=naz/2-0.5; % mean azimuth line

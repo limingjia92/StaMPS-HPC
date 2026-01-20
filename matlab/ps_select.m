@@ -7,7 +7,7 @@ function []=ps_select(reest_flag,plot_flag)
 %   ======================================================================
 %   Author:        Mingjia Li
 %   Date:          December 2025
-%   Version:       1.0 (HPC-Hybrid)
+%   Version:       1.0 
 %   License:       GPL v3.0 (Inherited from StaMPS)
 %
 %   PERFORMANCE BENCHMARK (On Test Dataset):

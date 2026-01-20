@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # Script Name: make_isce_stack_ps.sh
-# Description: Prepares Single Master Stack (PS) from ISCE SLCs for StaMPS.
+# Description: Prepares Single Reference Stack (PS) from ISCE SLCs for StaMPS.
 #              Replaces 'make_single_reference_stack_isce'.
 #              Process after 'stackSentinel.py'
 #
@@ -16,7 +16,7 @@ print_usage() {
     echo "Usage: $(basename "$0") reference_date [slc_stack_path] [stack_geom_path] [slc_stack_baseline_path] [rg_looks] [az_looks]"
     echo ""
     echo "Required Arguments:"
-    echo "  reference_date          : Date of the single master image (YYYYMMDD)"
+    echo "  reference_date          : Date of the single reference image (YYYYMMDD)"
     echo ""
     echo "Optional Path Arguments (Defaults assume 'merged' structure):"
     echo "  slc_stack_path          : Default: 'merged/SLC'"
@@ -250,7 +250,7 @@ echo "Step 4: Processing Baselines"
 
 step_baseline_stack.py -i "$BASELINE_PATH" -m "$REF_DATE"
 
-# Generate SLC list (excluding master)
+# Generate SLC list (excluding reference)
 cd "$SLC_STACK_PATH" || exit 1
 ls -d [0-9]*[0-9] | grep -v "$REF_DATE" | awk -F "/" '{print $NF}' > "$WORK_DIR/$INSAR_DIR/slcs.list"
 

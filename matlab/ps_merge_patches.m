@@ -7,7 +7,7 @@ function []=ps_merge_patches(psver)
 %   ======================================================================
 %   Author:        Mingjia Li
 %   Date:          December 2025
-%   Version:       2.0 (Parallel-Variable-Stream)
+%   Version:       1.0 
 %   License:       GPL v3.0 (Inherited from StaMPS)
 %
 %   PERFORMANCE BENCHMARK (On Test Dataset):

@@ -1,5 +1,6 @@
 function []=sb_load_initial_gamma(endian)
-%SB_LOAD_INITIAL_GAMMA Initial load of files into matlab workspace
+%SB_LOAD_INITIAL_GAMMA 
+%   Initializes the SBAS workflow by load files using GAMMA outputs.
 %
 %   Andy Hooper, Feb 2013
 %
@@ -19,7 +20,7 @@ end
 
 %NB IFGS assumed in ascending date order
 logit;
-fprintf('Loading data into matlab...\n')
+fprintf('Loading data into matlab from GAMMA...\n')
 
 phname=['./pscands.1.ph']; % for each PS candidate, a float complex value for each ifg
 ijname=['./pscands.1.ij']; % ID# Azimuth# Range# 1 line per PS candidate
