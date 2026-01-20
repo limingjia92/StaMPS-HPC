@@ -37,7 +37,7 @@ g++ -o calamp calamp_opt.c -O3 -fopenmp -march=native
 export OMP_NUM_THREADS=4 
 ./calamp calamp.in 67546 calamp.out s 1 > calamp.log
 
-```markdown
+```
 ## 2. PS/SB Selection (`selsbc_patch` & `selpsc_patch`)
 
 **Function:** Selects Slowly Decorrelating Filtered Phase (SDFP) pixels and PS candidates within patches.
@@ -55,7 +55,7 @@ export OMP_NUM_THREADS=4
 g++ -O3 -march=native -ffast-math -o selsbc_patch selsbc_patch_opt.c -lm
 g++ -O3 -march=native -ffast-math -o selpsc_patch selpsc_patch_opt.c -lm
 
-```markdown
+```
 ## 3. Phase Stability Estimation (`pscphase`)
 
 **Function:** Estimates the phase stability of candidates.
@@ -72,7 +72,7 @@ g++ -O3 -march=native -ffast-math -o selpsc_patch selpsc_patch_opt.c -lm
 ```bash
 g++ -O3 -o pscphase pscphase_opt.c
 
-```markdown
+```
 ## 4. DEM and Coordinates Search (`pscdem` & `psclonlat`)
 
 **Function:** Maps PS candidates to DEM height and geographic coordinates (Lon/Lat).
@@ -89,7 +89,7 @@ g++ -O3 -o pscphase pscphase_opt.c
 g++ -O3 -march=native -o pscdem pscdem_opt.c
 g++ -O3 -march=native -o psclonlat psclonlat_opt.c
 
-```markdown
+```
 ## 5. Heading & Incidence Angle Calculation (`pscheading`) [New]
 
 **Function:** Calculates the satellite Heading and Incidence angles for each selected PS candidate. This is an optional add-on to the standard pipeline, useful for detailed geometry analysis.
