@@ -17,7 +17,7 @@ We have refactored the legacy code to leverage **OpenMP parallelization**, **opt
 
 ## 1. Amplitude Calibration (`calamp`)
 
-**Function:** Calibrates the amplitude of the master and slave images.
+**Function:** Calculate amplitude calibration constant for SLC files.
 
 **Optimization Strategy:**
 * **Parallelization:** Refactored the core processing loop using **OpenMP** to enable multi-threaded execution.
@@ -38,9 +38,9 @@ export OMP_NUM_THREADS=4
 ./calamp calamp.in 67546 calamp.out s 1 > calamp.log
 
 ```
-## 2. PS/SB Selection (`selsbc_patch` & `selpsc_patch`)
+## 2. PS/SB Selection (`selpsc_patch` & `selsbc_patch`)
 
-**Function:** Selects Slowly Decorrelating Filtered Phase (SDFP) pixels and PS candidates within patches.
+**Function:** Selects PS candidates for PS/SB datasets within patches.
 
 **Optimization Strategy:**
 * **Buffered Reading:** Implemented a `LineInBufferMax` mechanism to handle data in optimized memory blocks rather than continuous small streams.
@@ -52,13 +52,13 @@ export OMP_NUM_THREADS=4
 
 **Compilation & Usage:**
 ```bash
-g++ -O3 -march=native -ffast-math -o selsbc_patch selsbc_patch_opt.c -lm
 g++ -O3 -march=native -ffast-math -o selpsc_patch selpsc_patch_opt.c -lm
+g++ -O3 -march=native -ffast-math -o selsbc_patch selsbc_patch_opt.c -lm
 
 ```
 ## 3. Phase Stability Estimation (`pscphase`)
 
-**Function:** Estimates the phase stability of candidates.
+**Function:** Extract phase for PS candidates from complex interferograms.
 
 **Optimization Strategy:**
 * **I/O Logic:** Modified read logic to prioritize sequential reading over random seeking.
@@ -75,7 +75,7 @@ g++ -O3 -o pscphase pscphase_opt.c
 ```
 ## 4. DEM and Coordinates Search (`pscdem` & `psclonlat`)
 
-**Function:** Maps PS candidates to DEM height and geographic coordinates (Lon/Lat).
+**Function:** Extract DEM height and geographic coordinates (Lon/Lat) for PS Candidates.
 
 **Optimization Strategy:**
 * **Algorithm Refactoring:** Updated search algorithms to improve lookup efficiency during coordinate assignment.
@@ -92,7 +92,7 @@ g++ -O3 -march=native -o psclonlat psclonlat_opt.c
 ```
 ## 5. Heading & Incidence Angle Calculation (`pscheading`) [New]
 
-**Function:** Calculates the satellite Heading and Incidence angles for each selected PS candidate. This is an optional add-on to the standard pipeline, useful for detailed geometry analysis.
+**Function:** Calculate Heading and Incidence angles for PS Candidates. This is an optional add-ont, useful for detailed geometry analysis.
 
 **Optimization:**
 * **Standard Optimization:** Compiled with Level 3 optimization (`-O3`) and native architecture targeting.
