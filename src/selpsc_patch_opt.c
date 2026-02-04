@@ -149,12 +149,6 @@ int main(int argc, char* argv[]) {
         char jiname[256]; // float format big endian for gamma
         strcpy(jiname, ijname);
         strcat(jiname, ".int");
-        
-        //MCC
-        char ijname0[256]; //used to store PS with at least one amplitude =0.
-        strcpy(ijname0, ijname);
-        strcat(ijname0, "0");
-        cout << "file name for zero amplitude PS: " << ijname0 << "\n";
 
         const char* daoutname;
         if (argc < 5)
@@ -315,7 +309,6 @@ int main(int argc, char* argv[]) {
 
         ofstream ijfile(ijname, ios::out);
         ofstream jifile(jiname, ios::out);
-        ofstream ijfile0(ijname0, ios::out);
         ofstream daoutfile(daoutname, ios::out);
         ofstream meanoutfile(meanoutname, ios::out);
 
@@ -504,9 +497,6 @@ int main(int argc, char* argv[]) {
                                 float D_a = sqrt((float)lhs_Dsq);
                                 daoutfile << D_a << "\n";
                             }
-                            else {
-                                ijfile0 << pscid << " " << (az_start - 1) + y << " " << (rg_start - 1) + x << "\n";
-                            }
                         }
                     } // end mask check
                 } // end x loop
@@ -525,11 +515,8 @@ int main(int argc, char* argv[]) {
 
         } // end while
 
-        cout << endl << "Processing complete." << endl;
-
         ijfile.close();
         jifile.close();
-        ijfile0.close();
         daoutfile.close();
         meanoutfile.close();
         

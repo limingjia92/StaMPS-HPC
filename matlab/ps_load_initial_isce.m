@@ -14,7 +14,8 @@ function [] = ps_load_initial_isce
 %   1. Dependency Consolidation: Merged auxiliary functions to reduce file handle overhead.
 %   2. Vectorized I/O: Replaced iterative loops with matrix `fread` and fast Regex parsing.
 %   3. Algorithmic Efficiency: Substituted `griddata` with `interp2` for regular grid interpolation.
-%   
+%   4. Add matfile head1.mat for save heading angle.
+%
 %   ======================================================================
 %   ORIGINAL HEADER (StaMPS)
 %   ======================================================================
@@ -22,7 +23,7 @@ function [] = ps_load_initial_isce
 %   ======================================================================
 
     logit;
-    logit('Loading data into matlab from ISCE...\n');
+    logit('Loading data into matlab from ISCE (PS)...\n');
 
     % configuration parameter
     phname = 'pscands.1.ph';      % for each PS candidate, a float complex value for each ifg
@@ -33,17 +34,17 @@ function [] = ps_load_initial_isce
     llname = 'pscands.1.ll';      % 2 float values (lon and lat) per PS candidate
     daname = 'pscands.1.da';      % 1 float value per PS candidate
     hgtname = 'pscands.1.hgt';    % 1 float value per PS candidate
-    laname = 'look_angle.1.in';   % grid of look angle values
-    headingname = 'heading.1.in'; % satellite heading
+    incname = 'inc_angle.raw';    % grid of incidence angle values
+    headname = 'heading.raw';     % satellite heading
+    headingname = 'heading.1.in'; % mean satellite heading    
     lambdaname = 'lambda.1.in';   % wavelength
     calname = 'calamp.out';       % amplitide calibrations
     widthname = 'width.txt';      % width of interferograms
     lenname = 'len.txt';          % length of interferograms
-    incname = 'inc_angle.raw';    % incidence angle
 
     psver = 1;
     incsavename = ['inc', num2str(psver)];
-    lasavename = ['la', num2str(psver)];
+    headsavename = ['head', num2str(psver)];
 
     % auxiliary function
     fix_path = @(x) conditional_path(x);
@@ -85,7 +86,20 @@ function [] = ps_load_initial_isce
     lambdaname = fix_path(lambdaname);
     lambda = load(lambdaname);
     setparm('lambda', lambda, 1);
-
+    
+    if abs(lambda - 0.0554658) < 5e-4
+        platform='S1A';
+    elseif abs(lambda - 0.0562356) < 5e-4
+        platform='ENVISAT';
+    elseif abs(lambda - 0.236057) < 1e2
+        platform = 'ALOS';
+    elseif abs(lambda - 0.0310666) < 5e-4
+        platform = 'TERRASAR';
+    else
+        platform = '';
+    end
+    setparm('platform', platform, 1);
+    
     %% --- 4. Load PS Indices and Amplitude Calibration ---
     ij = load(ijname);
     n_ps = size(ij, 1);
@@ -209,19 +223,15 @@ function [] = ps_load_initial_isce
     lenname = fix_path(lenname);
     len = load(lenname);
 
-    %% --- 10. processing Incidence / Look Angle ---
+    %% --- 10. Processing Incidence/ Heading ---
     target_geo_file = '';
     target_save_name = '';
 
     incname = search_file_upwards(incname);
-    laname = search_file_upwards(laname);
     
     if exist(incname, 'file')
         target_geo_file = incname;
         target_save_name = incsavename;
-    elseif exist(laname, 'file')
-        target_geo_file = laname;
-        target_save_name = lasavename;
     end
     
     if ~isempty(target_geo_file)
@@ -230,9 +240,34 @@ function [] = ps_load_initial_isce
 
     if exist('grid_data', 'var')
         idx_sub = sub2ind(size(grid_data), ij(:,2) + 1, ij(:,3) + 1);
-        angle_vals = grid_data(idx_sub);
-        angle_vals = angle_vals * pi ./ 180; 
-        stamps_save(target_save_name, angle_vals);
+        inc = grid_data(idx_sub);
+        inc = inc ./180 * pi; % convert from degree to radius
+        stamps_save(target_save_name, inc);
+        mean_incidence = mean(inc); % append mean_incidence value
+        savename = ['ps', num2str(psver)];
+        stamps_save(savename, mean_incidence);
+        clear grid_data;
+    end
+
+    target_geo_file = '';
+    target_save_name = '';
+
+    headname = search_file_upwards(headname);
+    
+    if exist(headname, 'file')
+        target_geo_file = headname;
+        target_save_name = headsavename;
+    end
+    
+    if ~isempty(target_geo_file)
+        grid_data = load_isce_internal(target_geo_file);
+    end
+
+    if exist('grid_data', 'var')
+        idx_sub = sub2ind(size(grid_data), ij(:,2) + 1, ij(:,3) + 1);
+        head = grid_data(idx_sub);
+        head = head * pi ./ 180; % convert from degree to radius
+        stamps_save(target_save_name, head);
         clear grid_data;
     end
 

@@ -1,4 +1,4 @@
-function [] = ps_est_gamma_quick(restart_flag)
+function [] = ps_est_gamma_quick
 % PS_EST_GAMMA_QUICK (HPC Optimized Version)
 %   Estimate phase coherence (gamma) for candidate pixels using iterative refinement.
 %
@@ -62,12 +62,9 @@ if exist('ps_topofit_mex', 'file') ~= 3
     error('Missing MEX: ps_topofit_mex');
 end
 
-if nargin < 1
-    restart_flag = 0;
-end
+restart_flag = getparm('restart_flag');
 
 % ================= Parameters =================
-rho = 830000; 
 n_rand = 300000; 
 
 grid_size              = getparm('filter_grid_size',1);
@@ -156,7 +153,6 @@ else
     n_ps = ps.n_ps;
     xy = ps.xy;
 end
-clear ps
 
 % Amplitude Normalization
 A = abs(ph);
@@ -165,24 +161,60 @@ A(A == 0) = 1;
 ph = ph ./ A;
 
 % Incidence Angle & Wraps
-if exist(incname,'file')
+platform_name = getparm('platform');
+if isempty(platform_name)
+    platform_name = 'UNKNOWN'; 
+end
+
+switch upper(platform_name)
+    case {'SENTINEL-1', 'S1', 'S1A', 'S1B', 'SENTINEL'}
+        default_rho = 880000;         % ~693km altitude / cos(37.5)
+        default_inc_rad = 37.5 * pi/180; 
+        la_offset_rad = 4.5 * pi/180; 
+    case {'ALOS', 'ALOS2', 'ALOS-2'}
+        default_rho = 760000;         % ~628km altitude / cos(34.3)
+        default_inc_rad = 34.3 * pi/180;
+        la_offset_rad = 4.5 * pi/180;
+    case {'TERRASAR-X', 'TSX', 'TDX', 'PAZ'}
+        default_rho = 630000;         % ~514km altitude / cos(35)
+        default_inc_rad = 35.0 * pi/180;
+        la_offset_rad = 5.0 * pi/180; 
+    case {'ENVISAT', 'ERS', 'ERS1', 'ERS2', 'ENV'}
+        default_rho = 830000;         % StaMPS classic default
+        default_inc_rad = 23.0 * pi/180;
+        la_offset_rad = 0.052;       
+    otherwise
+        default_rho = 850000;
+        default_inc_rad = 30.0 * pi/180;
+        la_offset_rad = 0.06;
+end
+
+if isfield(ps, 'mean_incidence') && ~isempty(ps.mean_incidence)
+    inc_mean = ps.mean_incidence;
+elseif exist(incname, 'file')
     inc = load(incname);
     inc_mean = mean(inc.inc(inc.inc ~= 0));
     clear inc
+elseif exist(laname, 'file')
+    la = load(laname);    
+    inc_mean = mean(la(la ~= 0)) + la_offset_rad; % incidence angle approx equals look angle + offset deg
+    clear la
 else
-    if exist(laname,'file')
-        la = load(laname);
-        inc_mean = mean(la.la) + 0.052; 
-        clear la
-    else
-        inc_mean = 21*pi/180; 
-    end
+    inc_mean = default_inc_rad;
+end
+
+if isfield(ps, 'mean_range') && ~isempty(ps.mean_range)
+    rho = ps.mean_range;
+else
+    rho = default_rho;
 end
 
 max_K = max_topo_err / (lambda * rho * sin(inc_mean) / 4 / pi);
 bperp_range = max(bperp) - min(bperp);
 n_trial_wraps = (bperp_range * max_K / (2*pi));
 logit(sprintf('n_trial_wraps=%f',n_trial_wraps));
+
+clear ps
 
 % ================= Initialization =================
 if restart_flag > 0

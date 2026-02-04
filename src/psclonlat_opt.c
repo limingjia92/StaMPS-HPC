@@ -116,8 +116,9 @@ int main(int argc, char *argv[]) {
                 outfile.write(reinterpret_cast<char*>(&val), sizeof(float));
             }
 
-            if (pscid % 100000 == 0 && pscid > 0)
-                cout << pscid << " PS candidates processed\n";
+            if (pscid % 1000000 == 0 && pscid > 0)
+                cout << "psclonlat: " << pscid << " PS candidates processed\n";
+
         }
 
         outfile.close();

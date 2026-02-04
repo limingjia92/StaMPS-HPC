@@ -43,6 +43,9 @@ function ps_parms_default()
     % STEP 2: ESTIMATE PHASE NOISE
     % =========================================================================
     
+    if ~isfield(parms,'restart_flag')
+        parms.restart_flag = 0;             % Restart previous run for ps_est_gamma_quick
+    end
     if ~isfield(parms,'max_topo_err')
         parms.max_topo_err = 20;            % Max uncorrelated DEM error (m). Pixels with error > this are dropped.
     end
@@ -78,6 +81,10 @@ function ps_parms_default()
     if ~isfield(parms,'reest_gamma_flag')
         % Recalculate phase/coh during selection. 'y'=accurate/slow, 'n'=inaccurate/fast.
         parms.reest_gamma_flag = 'y';
+    end
+    if ~isfield(parms,'use_fast_topofit')
+        % Using Mex version topofit. 'y'=Mex/fast, 'n'=Matlab/slow.
+        parms.use_fast_topofit = 'y';
     end
     if ~isfield(parms,'select_method')
         parms.select_method = 'DENSITY';    % Pixel selection method ('DENSITY' or 'PERCENT').

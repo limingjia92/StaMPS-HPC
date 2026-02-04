@@ -22,7 +22,7 @@ function [value, parmname] = getparm(parmname, printflag)
     % --- 1. Load Parameters (Priority: Current Dir > Parent Dir) ---
     parmfile_name = 'parms.mat';
     
-    if exist(parmfile_name, 'file')
+    if exist(['.' filesep parmfile_name], 'file')
         parms = load(parmfile_name);
     elseif exist(['..' filesep parmfile_name], 'file')
         parms = load(['..' filesep parmfile_name]);
@@ -65,7 +65,8 @@ function [value, parmname] = getparm(parmname, printflag)
             % Parameter genuinely doesn't exist
             value = [];
             parmname = [];
-            error(['Parameter ''%s'' not found in parms.mat'], parmname);
+            fprintf('Parameter ''%s'' not found in parms.mat. Returning empty.\n', parmname);
+            return;
         else
             % Unique match found, update parmname to full name
             parmname = valid_fields{match_idx};
@@ -73,7 +74,11 @@ function [value, parmname] = getparm(parmname, printflag)
     end
 
     % --- 4. Retrieve Value (Requirement 6: Dynamic Field Access) ---
-    value = parms.(parmname);
+    if isfield(parms, parmname)
+        value = parms.(parmname);
+    else
+        value = [];
+    end
 
     % --- 5. Logging / Display ---
     if printflag ~= 0

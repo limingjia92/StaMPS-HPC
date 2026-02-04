@@ -89,7 +89,7 @@ ifg_std = (sqrt(sum(ph_diff.^2, 1) / n_ps) * 180 / pi)';
 % Display results
 if strcmpi(small_baseline_flag, 'y')
     for i = 1:ps.n_ifg
-        fprintf('%3d %s_%s %3.2f\n', i, datestr(ps.ifgday(i,1)), datestr(ps.ifgday(i,2)), ifg_std(i));
+        fprintf('%3d %s -- %s %3.2f\n', i, datestr(ps.ifgday(i,1)), datestr(ps.ifgday(i,2)), ifg_std(i));
     end
 else
     for i = 1:ps.n_ifg

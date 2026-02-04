@@ -1,4 +1,4 @@
-function []=ps_merge_patches(psver)
+function []=ps_merge_patches(psver, patch_list_file)
 %PS_MERGE_PATCHES (HPC Optimized Version)
 %   Merge overlapping patches into a single dataset using Parallel I/O.
 %
@@ -58,7 +58,10 @@ fprintf('Merging patches ...\n')
 if nargin < 1
     psver=2;
 end
-patch_list_file = 'patch.list';
+
+if nargin < 2
+    patch_list_file = 'patch.list';
+end
 
 if exist(['./',patch_list_file],'file')
     dirname=struct;
@@ -95,6 +98,7 @@ pmname=['pm',num2str(psver)];
 bpname=['bp',num2str(psver)];
 laname=['la',num2str(psver)];
 incname=['inc',num2str(psver)];
+headname=['head',num2str(psver)];
 hgtname=['hgt',num2str(psver)];
 scnname=['scn',num2str(psver)];
 sclaname=['scla',num2str(psver)];
@@ -323,6 +327,7 @@ Tasks = {
     'bp',  0, bpname;
     'la',  0, laname;
     'inc', 0, incname;
+    'head', 0, headname;
     'hgt', 0, hgtname;
     'ph',  0, phname; 
     'rc',  1, rcname;
@@ -334,7 +339,7 @@ Tasks = {
 };
 
 % User specified list for Double Conversion
-vars_to_double = {'hgt', 'inc', 'la', 'ph', 'pm', 'rc'};
+vars_to_double = {'hgt', 'inc', 'la', 'head', 'ph', 'pm', 'rc'};
 
 % Get dimensions
 cd(dirname(1).name);
@@ -600,7 +605,7 @@ for t = 1:size(Tasks, 1)
          clear bperp_mat
 
     % =========================================================================
-    % CASE 4: Simple Variables (ph, inc, la, hgt, scn, phuw)
+    % CASE 4: Simple Variables (ph, inc, la, head, hgt, scn, phuw)
     % =========================================================================
     elseif fileExists || strcmp(varType, 'inc') 
         
@@ -608,7 +613,7 @@ for t = 1:size(Tasks, 1)
         if strcmp(varType, 'ph'), f='ph'; n_cols=n_cols_ifg;
         elseif strcmp(varType, 'phuw'), f='ph_uw'; n_cols=n_cols_ifg;
         elseif strcmp(varType, 'scn'), f='ph_scn_slave'; n_cols=n_cols_ifg;
-        elseif strcmp(varType, 'la') || strcmp(varType, 'inc') || strcmp(varType, 'hgt'), f=varType; n_cols=1;
+        elseif strcmp(varType, 'la') || strcmp(varType, 'inc') || strcmp(varType, 'head') || strcmp(varType, 'hgt'), f=varType; n_cols=1;
         end
         
         OUT_VAR = cell(1, n_patch);

@@ -25,7 +25,7 @@ function []=ps_weed(all_da_flag,no_weed_adjacent,no_weed_noisy)
 %               saving 
 %   10/2017 DB: if inc is present also do weeding on it.
 %   05/2019 Mingjia: change fuction system(triangle) to MATLAB function delaunayTriangulation().
-%   12/2025 Mingjia: Small Optimizations 
+%   12/2025 Mingjia: Small Optimizations and head matfile
 %   ===================================================================
 
 logit;
@@ -68,13 +68,16 @@ hgtname=['hgt',num2str(psver),'.mat'];
 laname=['la',num2str(psver),'.mat'];
 incname=['inc',num2str(psver),'.mat'];
 bpname=['bp',num2str(psver),'.mat'];
+headname=['head',num2str(psver),'.mat'];
 psothername=['ps_other'];
-psothername=['pm_other'];
+pmothername=['pm_other'];
 selectothername=['select_other'];
 hgtothername=['hgt_other'];
 laothername=['la_other'];
 incothername=['inc_other'];
 bpothername=['bp_other'];
+headothername=['head_other'];
+
 
 ps=load(psname);
 ifg_index=setdiff([1:ps.n_ifg],drop_ifg_index);
@@ -459,6 +462,19 @@ if exist(bpname,'file')
     end
     bperp_mat=bperp_mat(ix_weed,:);
     stamps_save(['bp',num2str(psver+1),'.mat'],bperp_mat);
+end
+
+if exist(headname,'file')
+    head=load(headname);
+    head=[head.head(ix2)];
+    if all_da_flag~=0
+        heado=load(headothername);
+        head=[head;heado.heading_other(ix_other)];
+        clear heado
+    end
+    head=head(ix_weed);
+    stamps_save(['head',num2str(psver+1),'.mat'],head);
+    clear head
 end
 
 if exist(['scla_smooth',num2str(psver+1),'.mat'],'file')

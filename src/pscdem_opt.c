@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 
             outfile.write(pixel_data, sizeofpixel);
 
-            if (pscid % 100000 == 0 && pscid > 0)
+            if (pscid % 1000000 == 0 && pscid > 0)
                 cout << "pscdem: " << pscid << " PS candidates processed\n";
         }   
         

@@ -56,9 +56,37 @@ AZ_LOOKS=${6:-5}
 # --- Hardcoded Parameters ---
 SLC_SUFFIX=".full"
 GEOM_SUFFIX=".full"
+
+# --- Wavelength Extraction ---
 # Sentinel-1 C-band Wavelength (m)
 # Note: TerraSAR-X is ~0.031, ALOS-2 is ~0.236. Change this if using other sensors.
-LAMBDA=0.0554658 
+DEFAULT_LAMBDA=0.0554658 
+
+PROJECT_ROOT=$(dirname "$(dirname "$SLC_STACK_PATH")")
+REF_XML_DIR="$PROJECT_ROOT/reference"
+
+FOUND_XML=""
+for i in {1..3}; do
+    if [ -f "$REF_XML_DIR/IW$i.xml" ]; then
+        FOUND_XML="$REF_XML_DIR/IW$i.xml"
+        break
+    fi
+done
+
+if [ -n "$FOUND_XML" ]; then  
+    echo "Reading wavelength from: $FOUND_XML"  
+    EXTRACTED_VAL=$(grep -A 2 'name="radarwavelength"' "$FOUND_XML" | grep "<value>" | head -n 1 | sed -e 's/.*<value>//' -e 's/<\/value>.*//' | tr -d '[:space:]')
+    if [ ! -z "$EXTRACTED_VAL" ]; then
+        LAMBDA=$EXTRACTED_VAL
+        echo "Detected Wavelength: $LAMBDA"
+    else
+        LAMBDA=$DEFAULT_LAMBDA
+        echo "Warning: 'radarwavelength' not found in XML. Using default: $LAMBDA"
+    fi
+else
+    LAMBDA=$DEFAULT_LAMBDA
+    echo "Warning: No IW*.xml found. Using default: $LAMBDA"
+fi
 
 # Constants
 WORK_DIR=$(pwd)

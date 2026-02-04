@@ -91,7 +91,7 @@ function []=setparm(parmname,value,newflag)
     end
 
     % CASE B: Reset to Default (value is NaN)
-    if isnumeric(value) && isnan(value)
+    if isnumeric(value) && isscalar(value) && isnan(value)
         if strcmpi(parmname,'small_baseline_flag')
             error('Default reset option not possible for small_baselines_flag');
         end

@@ -174,7 +174,6 @@ int main(int argc, char *argv[]) {
         }
 
         outfile.close();
-        cout << "Done." << endl;
 
     } catch (const char* msg) {
         cerr << "EXCEPTION: " << msg << endl;

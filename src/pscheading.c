@@ -200,7 +200,8 @@ int main(int argc, char *argv[]) {
             f_out_inc.write(reinterpret_cast<char*>(&inc_res), sizeof(float));
 
             count++;
-            if (count % 100000 == 0) cout << count << " points processed..." << endl;
+            if (count % 1000000 == 0 && count > 0)
+                cout << "pscheading: " << count << " PS candidates processed\n";
         }
 
         cout << "Done. Total: " << count << ", Out of bounds: " << out_of_bounds << endl;

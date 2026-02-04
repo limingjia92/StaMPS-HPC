@@ -152,9 +152,9 @@ echo "Dimensions : $IMG_WIDTH (Width) x $IMG_LENGTH (Length)"
 # Run Matlab Initialization
 echo "Running Matlab parameter initialization..."
 if [ $SB_FLAG -eq 1 ]; then
-    matlab -nojvm -nosplash -nodisplay < "$STAMPS/matlab/sb_parms_initial.m" > sb_parms_initial.log
+    matlab -nojvm -nosplash -nodisplay -r "sb_parms_initial; exit" > sb_parms_initial.log
 else
-    matlab -nojvm -nosplash -nodisplay < "$STAMPS/matlab/ps_parms_initial.m" > ps_parms_initial.log
+    matlab -nojvm -nosplash -nodisplay -r "ps_parms_initial; exit" > ps_parms_initial.log
 fi
 
 # --- Step 2: Calibrate Amplitudes ---
@@ -319,7 +319,7 @@ else
 fi
 
 # 4. link file for StaMPS
-GEOM_BASENAMES="inc_angle.raw look_angle.raw" 
+GEOM_BASENAMES="inc_angle.raw heading.raw" 
 
 for NAME in $GEOM_BASENAMES; do
     SOURCE_FILE="$DATA_DIR/$NAME"
@@ -333,6 +333,7 @@ for NAME in $GEOM_BASENAMES; do
         fi
 
         if [ -f "$SOURCE_FILE.vrt" ]; then
+             echo "Linking $NAME.vrt ..."
              ln -sf "$SOURCE_FILE.vrt" .
         fi
     fi

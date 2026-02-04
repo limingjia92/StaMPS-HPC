@@ -146,9 +146,9 @@ echo "gamma" > processor.txt
 # Run Matlab parameter initialization
 echo "Running Matlab parameter initialization..."
 if [ $SB_FLAG -eq 1 ]; then
-    matlab -nojvm -nosplash -nodisplay < "$STAMPS/matlab/sb_parms_initial.m" > sb_parms_initial.log
+    matlab -nojvm -nosplash -nodisplay -r "sb_parms_initial; exit" > sb_parms_initial.log
 else
-    matlab -nojvm -nosplash -nodisplay < "$STAMPS/matlab/ps_parms_initial.m" > ps_parms_initial.log
+    matlab -nojvm -nosplash -nodisplay -r "ps_parms_initial; exit" > ps_parms_initial.log
 fi
 
 # Save metadata for later steps
