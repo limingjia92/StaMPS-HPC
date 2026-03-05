@@ -42,8 +42,8 @@ The general workflow for processing data using these scripts involves stacking t
 make_isce_stack_ps.sh 20220104 merged/SLC merged/geom_reference merged/baselines
 
 # Step 2: Extract candidates and prepare StaMPS patches with parallelization 
-# (e.g., Da_thresh: 0.4, Patches: 2x2, Parallel Jobs: 8)
-prep_stamps_isce.sh INSAR_20220104 work_dir 0.4 2 2 8
+# (e.g., Da_thresh: 0.4, Patches: 4x8, Parallel Jobs: 5)
+prep_stamps_isce.sh INSAR_20220104 work_dir 0.4 4 8 5
 ```
 
 (For detailed parameter inputs, simply run any of the scripts without arguments to view the usage menu).
@@ -59,4 +59,5 @@ While the prep_stamps_*.sh scripts fully support multi-core parallelization via 
 * **Mechanical HDDs:** Increasing jobmaxnum may decrease overall performance due to severe disk thrashing. Limit parallel jobs to 1 or 2 if operating on HDDs.
 
 **Path Configuration**
+
 Ensure that this bin directory is accessible in your system's $PATH. If you have executed the top-level StaMPS_CONFIG.bash script, this requirement is already handled automatically.
