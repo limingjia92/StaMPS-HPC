@@ -161,11 +161,17 @@ function ps_parms_default()
     % =========================================================================
 
     if ~isfield(parms,'unwrap_method')
-        % Unwrapping algorithm (e.g., '3D', '3D_QUICK').
+        % Unwrapping algorithm 
+        %   - '2D'       : Spatial smoothing only. Fastest but susceptible to phase jumps.
+        %   - '3D_QUICK' : Time-space smoothing with simple thresholding. Fast, low accuracy.
+        %   - '3D'       : (Standard) Temporal smoothing + iterative optimization. 
+        %                  HPC-Parallelized. High accuracy, recommended for SBAS.
+        %   - '3D_FULL'  : Temporal modeling via local linear regression. 
+        %                  Highest precision for PS; incompatible with SBAS.
         if strcmpi(parms.small_baseline_flag,'y')
-            parms.unwrap_method = '3D_QUICK';  
+            parms.unwrap_method = '3D';  
         else
-            parms.unwrap_method = '3D';
+            parms.unwrap_method = '3D_FULL';
         end
     end
     if ~isfield(parms,'unwrap_prefilter_flag')
@@ -215,17 +221,39 @@ function ps_parms_default()
     if ~isfield(parms,'scla_method')
         parms.scla_method = 'L2';           % Method for estimating SCLA (e.g., 'L2').
     end
+
+    % =========================================================================
+    % STEP 8: FILTER SPATIALLY CORRELATED NOISE 
+    % =========================================================================
+
     if ~isfield(parms,'scn_wavelength')
         parms.scn_wavelength = 100;         % Spatially correlated noise wavelength (m).
     end
     if ~isfield(parms,'scn_time_win')
-        parms.scn_time_win = 365;           % Time window for SCN estimation (days).
+        parms.scn_time_win = 730;           % Time window for SCN estimation (days).
     end
     if ~isfield(parms,'scn_deramp_ifg')
         parms.scn_deramp_ifg = [];          % Indices of specific interferograms to apply deramping.
     end
     if ~isfield(parms,'scn_kriging_flag')
         parms.scn_kriging_flag = 'n';       % Use kriging-based SCN filtering (computationally expensive).
+    end
+    if ~isfield(parms,'krig_atmo')
+        parms.krig_atmo = 'y';       % 
+    end
+
+    % =========================================================================
+    % ORBITAL DERAMPING 
+    % =========================================================================
+
+    if ~isfield(parms,'deramp_degree')      % Polynomial degree for orbital ramp removal in ps_deramp function
+        parms.deramp_degree = 1;            % (0=const, 0.4/0.6/1=linear, 1.5/2/2.5=quadratic, 3=cubic).
+    end
+    if ~isfield(parms,'deramp_mask_lon')
+        parms.deramp_mask_lon = [];         % Longitude vertices of polygon to EXCLUDE from ramp estimation (e.g., subsidence).
+    end
+    if ~isfield(parms,'deramp_mask_lat')
+        parms.deramp_mask_lat = [];         % Latitude vertices of exclusion polygon.
     end
 
     % =========================================================================
@@ -244,9 +272,6 @@ function ps_parms_default()
     if ~isfield(parms,'ref_radius')
         parms.ref_radius = inf;             % Radius of reference area.
     end
-    if ~isfield(parms,'plot_dem_posting')
-        parms.plot_dem_posting = 90;        % Resampling resolution (m) for background DEM plotting.
-    end
     if ~isfield(parms,'plot_scatterer_size')
         parms.plot_scatterer_size = 120;    % Scatterer size in map units (m).
     end
@@ -254,13 +279,16 @@ function ps_parms_default()
         parms.plot_pixels_scatterer = 3;    % Screen pixels occupied by each scatterer symbol.
     end
     if ~isfield(parms,'plot_color_scheme')
-        parms.plot_color_scheme = 'inflation'; % Colormap: 'inflation', 'deflation', 'gray', 'GMT_relief', etc.
-    end
-    if ~isfield(parms,'shade_rel_angle')
-        parms.shade_rel_angle = [90,45];    % Light angle [azimuth, elevation] for shaded relief DEM.
+        parms.plot_color_scheme = 'inflation'; % Colormap: 'inflation', 'deflation', 'gray', 'GMT_relief', and other GMT cpt names.
     end
     if ~isfield(parms,'lonlat_offset')
         parms.lonlat_offset = [0,0];        % Manual [lon, lat] offset to align PS points with DEM.
+    end
+    if ~isfield(parms,'plot_lon_rg')
+        parms.plot_lon_rg = [ ];        % Area longitude range for figure plot in ps_plot
+    end
+    if ~isfield(parms,'plot_lat_rg')
+        parms.plot_lat_rg = [ ];        % Area latitude range for figure plot in ps_plot
     end
 
     % =========================================================================

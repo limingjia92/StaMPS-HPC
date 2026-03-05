@@ -63,9 +63,9 @@ function [value, parmname] = getparm(parmname, printflag)
             error(['Parameter ''%s*'' is not unique. Matches: %s'], parmname, matches);
         elseif isempty(match_idx)
             % Parameter genuinely doesn't exist
+            fprintf('Parameter ''%s'' not found in parms.mat. Returning empty.\n', parmname);
             value = [];
             parmname = [];
-            fprintf('Parameter ''%s'' not found in parms.mat. Returning empty.\n', parmname);
             return;
         else
             % Unique match found, update parmname to full name

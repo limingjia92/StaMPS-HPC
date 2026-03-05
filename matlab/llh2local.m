@@ -1,4 +1,4 @@
-function xy=llh2local(llh,origin)
+function xy = llh2local(llh, origin)
 % LLH2LOCAL 
 %
 %   Converts from longitude and latitude to local coorindates

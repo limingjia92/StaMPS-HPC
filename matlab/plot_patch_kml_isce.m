@@ -1,30 +1,18 @@
 function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_overlap)
-% PLOT_PATCH_KML_ISCE  Generate KML to visualize StaMPS patches from ISCE source
+% PLOT_PATCH_KML_ISCE  Generate KML and GMT text to visualize Patches (ISCE)
 %   ======================================================================
 %   MODIFICATION HEADER (StaMPS-HPC)
 %   ======================================================================
 %   Author:        Mingjia Li
-%   Date:          January 2026
-%   Version:       1.0 
-%   License:       GPL v3.0 (Inherited from StaMPS)
+%   Date:          February 2026
+%   Version:       2.0 (Added GMT output & KML LookAt)
+%   ======================================================================
 
-% Usage:
-%   plot_patch_kml_isce(data_dir, rg_patches, az_patches)
-%   plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_overlap)
-%
-% Arguments:
-%   data_dir   : Path to the GAMMS source data directory
-%   rg_patches : Number of patches in Range
-%   az_patches : Number of patches in Azimuth
-%   rg_overlap : (Optional) Overlap in Range (Default: 400)
-%   az_overlap : (Optional) Overlap in Azimuth (Default: 400)
-
-    % --- 0. Default Parameter Handling ---
     if nargin < 4, rg_overlap = 400; end
     if nargin < 5, az_overlap = 400; end
 
     fprintf('------------------------------------------------\n');
-    fprintf('Generating Patch KML Visualization (ISCE Mode)\n');
+    fprintf('Generating Patch Visualization (ISCE Mode)\n');
     fprintf('Data Dir: %s\n', data_dir);
     fprintf('Patches : %d (Rg) x %d (Az)\n', rg_patches, az_patches);
 
@@ -35,7 +23,6 @@ function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_ov
     if ~isfile(width_file) || ~isfile(len_file)
         error('Error: width.txt or len.txt not found in %s.', data_dir);
     end
-
     img_width  = load(width_file);
     img_length = load(len_file);
 
@@ -47,27 +34,43 @@ function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_ov
         error('Error: lon.raw or lat.raw not found.');
     end
 
-    % --- 3. Initialize KML ---
-    kml_filename = 'patches_ISCE.kml';
-    fid_kml = fopen(kml_filename, 'w');
-    write_kml_header(fid_kml);
-
-    % Open files (ISCE Little Endian)
     fid_lon = fopen(lon_file, 'r', 'l'); 
     fid_lat = fopen(lat_file, 'r', 'l'); 
 
-    % --- 4. Loop to Calculate Patches ---
+    % --- 3. Pre-calculate Global Bounding Box for KML <LookAt> ---
+    global_corners = estimate_corners_affine(fid_lon, fid_lat, img_width, ...
+                                             1, img_width, 1, img_length, ...
+                                             1, img_width, 1, img_length);
+    if ~isempty(global_corners)
+        min_lon = min(global_corners(:,1)); max_lon = max(global_corners(:,1));
+        min_lat = min(global_corners(:,2)); max_lat = max(global_corners(:,2));
+        center_lon = (min_lon + max_lon) / 2;
+        center_lat = (min_lat + max_lat) / 2;
+        % calculate look at angle
+        lookat_range = max(max_lon - min_lon, max_lat - min_lat) * 111000 * 1.5; 
+    else
+        center_lon = 0; center_lat = 0; lookat_range = 100000;
+    end
+
+    % --- 4. Initialize Output Files (KML + GMT Text) ---
+    kml_filename = 'patches_ISCE.kml';
+    txt_filename = 'patches_ISCE.txt';
+    
+    fid_kml = fopen(kml_filename, 'w');
+    fid_txt = fopen(txt_filename, 'w');
+    
+    write_kml_header(fid_kml, center_lon, center_lat, lookat_range);
+
+    % --- 5. Loop to Calculate Patches ---
     width_p = floor(img_width / rg_patches);
     length_p = floor(img_length / az_patches);
-    
     patch_count = 0;
 
     for irg = 1:rg_patches
         for iaz = 1:az_patches
             patch_count = patch_count + 1;
 
-            % --- Calculate Indices (with Overlap) ---
-            % Grid based
+            % Grid based indices
             start_rg_noover = width_p * (irg - 1) + 1;
             end_rg_noover   = width_p * irg;
             start_az_noover = length_p * (iaz - 1) + 1;
@@ -79,112 +82,81 @@ function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_ov
             start_az = start_az_noover - az_overlap;
             end_az   = end_az_noover + az_overlap;
 
-            % Clamp to image limits for data reading, but keep theoretical shape for geometry?
-            % Usually we want to visualize the processing area. Let's clamp for validity.
+            % Clamp to image limits for data reading
             read_start_rg = max(1, start_rg); 
             read_end_rg   = min(img_width, end_rg);
             read_start_az = max(1, start_az); 
             read_end_az   = min(img_length, end_az);
 
-            % --- Core: Affine fitting to estimate corners ---
+            % Affine fitting to estimate corners
             corners = estimate_corners_affine(fid_lon, fid_lat, img_width, ...
                                               read_start_rg, read_end_rg, ...
                                               read_start_az, read_end_az, ...
                                               start_rg, end_rg, start_az, end_az);
             
-            % --- Write to KML ---
+            % Write to outputs
             if ~isempty(corners)
-                % corners is 4x2 [lon, lat]
                 lons = corners(:, 1);
                 lats = corners(:, 2);
                 
+                % write KML
                 write_kml_placemark(fid_kml, patch_count, lons, lats);
+                
+                % write GMT data file
+                fprintf(fid_txt, '> PATCH_%d\n', patch_count);
+                for i = 1:4
+                    fprintf(fid_txt, '%.6f %.6f\n', lons(i), lats(i));
+                end
+                % polygon
+                fprintf(fid_txt, '%.6f %.6f\n', lons(1), lats(1));
+                
                 fprintf('Patch %d: Processed.\n', patch_count);
             else
-                fprintf('Warning: Patch %d has insufficient valid data for fit (skipped).\n', patch_count);
+                fprintf('Warning: Patch %d has insufficient valid data (skipped).\n', patch_count);
             end
         end
     end
 
-    % --- 5. Cleanup ---
+    % --- 6. Cleanup ---
     fclose(fid_lon); fclose(fid_lat);
     write_kml_footer(fid_kml); fclose(fid_kml);
-    fprintf('Success! Saved to: %s\n', fullfile(pwd, kml_filename));
+    fclose(fid_txt);
+    fprintf('Success! Saved to:\n - %s\n - %s\n', kml_filename, txt_filename);
 end
 
 %% --- Helper Functions ---
-
 function predicted_corners = estimate_corners_affine(fid_lon, fid_lat, full_width, ...
                                                      r_min, r_max, a_min, a_max, ...
                                                      target_r_min, target_r_max, target_a_min, target_a_max)
-    % ESTIMATE_CORNERS_AFFINE
-    % 1. Sample valid points within the Patch range
-    % 2. Fit planar model Lon = f(r, a), Lat = g(r, a)
-    % 3. Estimate longitude/latitude of target corners
-    
     predicted_corners = [];
-    
-    % Step 1: Sparse Sampling (Grid Sampling)
-    % For speed, do not read every pixel. Sample ~20 points in both Range and Azimuth directions.
     n_samples = 20; 
     step_r = max(1, floor((r_max - r_min) / n_samples));
     step_a = max(1, floor((a_max - a_min) / n_samples));
+    r_coords = []; a_coords = []; val_lons = []; val_lats = [];
     
-    r_coords = [];
-    a_coords = [];
-    val_lons = [];
-    val_lats = [];
-    
-    % Iterate through sample points
     for a = a_min:step_a:a_max
         for r = r_min:step_r:r_max
              l_val = get_val_at_pixel(fid_lon, full_width, r, a);
              L_val = get_val_at_pixel(fid_lat, full_width, r, a);
-             
-             % Filter invalid values (0)
              if abs(l_val) > 1e-6 && abs(L_val) > 1e-6
-                 r_coords = [r_coords; r]; %#ok<AGROW>
-                 a_coords = [a_coords; a]; %#ok<AGROW>
-                 val_lons = [val_lons; l_val]; %#ok<AGROW>
-                 val_lats = [val_lats; L_val]; %#ok<AGROW>
+                 r_coords = [r_coords; r]; a_coords = [a_coords; a]; %#ok<AGROW>
+                 val_lons = [val_lons; l_val]; val_lats = [val_lats; L_val]; %#ok<AGROW>
              end
         end
     end
     
-    % If too few valid points, fitting is impossible
-    if length(r_coords) < 10
-        return;
-    end
-    
-    % Step 2: Least Squares Fit
-    % Model: Val = c1 * r + c2 * a + c3
-    % Matrix: [r, a, 1] * [c1; c2; c3] = Val
+    if length(r_coords) < 10, return; end
     
     A = [r_coords, a_coords, ones(size(r_coords))];
-    
-    % Fit Longitude
-    coeffs_lon = A \ val_lons; % Solve linear system
-    
-    % Fit Latitude
+    coeffs_lon = A \ val_lons; 
     coeffs_lat = A \ val_lats;
     
-    % Step 3: Predict Four Corners
-    % Order: TL, TR, BR, BL (ensure counter-clockwise or loop)
-    % Corner 1: (min_r, min_a) -> Top-Left (usually)
-    % Corner 2: (max_r, min_a) -> Top-Right
-    % Corner 3: (max_r, max_a) -> Bottom-Right
-    % Corner 4: (min_r, max_a) -> Bottom-Left
-    
-    % Note: Using target_r/a here (theoretical boundaries including overlap)
-    % Even if these points are 0 or out of range in raw data, the fitting formula yields correct estimates
     target_corners_r = [target_r_min; target_r_max; target_r_max; target_r_min];
     target_corners_a = [target_a_min; target_a_min; target_a_max; target_a_max];
-    
     DesignMatrix = [target_corners_r, target_corners_a, ones(4,1)];
     
     pred_lons = DesignMatrix * coeffs_lon;
     pred_lats = DesignMatrix * coeffs_lat;
-    
     predicted_corners = [pred_lons, pred_lats];
 end
 
@@ -195,36 +167,39 @@ function val = get_val_at_pixel(fid, width, r, a)
     if isempty(val), val = 0; end
 end
 
-function write_kml_header(fid)
+function write_kml_header(fid, c_lon, c_lat, range)
     fprintf(fid, '<?xml version="1.0" encoding="UTF-8"?>\n');
     fprintf(fid, '<kml xmlns="http://www.opengis.net/kml/2.2">\n');
     fprintf(fid, '<Document>\n');
-    fprintf(fid, '  <name>StaMPS Patches</name>\n');
+    fprintf(fid, '  <name>StaMPS Patches (ISCE)</name>\n');
+    
+    fprintf(fid, '  <LookAt>\n');
+    fprintf(fid, '    <longitude>%.6f</longitude>\n', c_lon);
+    fprintf(fid, '    <latitude>%.6f</latitude>\n', c_lat);
+    fprintf(fid, '    <altitude>0</altitude>\n');
+    fprintf(fid, '    <heading>0</heading>\n');
+    fprintf(fid, '    <tilt>0</tilt>\n');
+    fprintf(fid, '    <range>%.0f</range>\n', range);
+    fprintf(fid, '  </LookAt>\n');
+    
     fprintf(fid, '  <Style id="centeredLabelStyle">\n');
-    fprintf(fid, '    <IconStyle>\n');
-    fprintf(fid, '      <scale>0</scale>\n');
-    fprintf(fid, '    </IconStyle>\n');
+    fprintf(fid, '    <IconStyle><scale>0</scale></IconStyle>\n');
     fprintf(fid, '    <LabelStyle>\n');
-    fprintf(fid, '      <scale>1.5</scale>\n');  % size of label font 
-    fprintf(fid, '      <color>ff0000ff</color>\n'); % color of label font (red)
+    fprintf(fid, '      <scale>1.5</scale>\n');
+    fprintf(fid, '      <color>ff0000ff</color>\n'); 
     fprintf(fid, '    </LabelStyle>\n');
     fprintf(fid, '    <LineStyle>\n');
-    fprintf(fid, '      <color>ff0000ff</color>\n'); % color of line (red)
-    fprintf(fid, '      <width>2</width>\n');  % width of line 
+    fprintf(fid, '      <color>ff0000ff</color>\n'); 
+    fprintf(fid, '      <width>2</width>\n');  
     fprintf(fid, '    </LineStyle>\n');
-    fprintf(fid, '    <PolyStyle>\n');
-    fprintf(fid, '      <fill>0</fill>\n');     
-    fprintf(fid, '    </PolyStyle>\n');
+    fprintf(fid, '    <PolyStyle><fill>0</fill></PolyStyle>\n');
     fprintf(fid, '  </Style>\n');
 end
 
 function write_kml_placemark(fid, idx, lons, lats)
-    lon_center = mean(lons);
-    lat_center = mean(lats);
-
+    lon_center = mean(lons); lat_center = mean(lats);
     fprintf(fid, '  <Placemark>\n');
     fprintf(fid, '    <name>PATCH_%d</name>\n', idx);
-    fprintf(fid, '    <description>PATCH_%d</description>\n', idx);
     fprintf(fid, '    <styleUrl>#centeredLabelStyle</styleUrl>\n'); 
     fprintf(fid, '    <MultiGeometry>\n');
     fprintf(fid, '      <Polygon>\n');
@@ -232,7 +207,6 @@ function write_kml_placemark(fid, idx, lons, lats)
     fprintf(fid, '        <outerBoundaryIs>\n');
     fprintf(fid, '          <LinearRing>\n');
     fprintf(fid, '            <coordinates>\n');
-    
     for i = 1:4
         fprintf(fid, '              %.6f,%.6f,0\n', lons(i), lats(i));
     end
@@ -249,6 +223,5 @@ function write_kml_placemark(fid, idx, lons, lats)
 end
 
 function write_kml_footer(fid)
-    fprintf(fid, '</Document>\n');
-    fprintf(fid, '</kml>\n');
+    fprintf(fid, '</Document>\n</kml>\n');
 end

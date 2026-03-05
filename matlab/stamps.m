@@ -28,7 +28,7 @@ function stamps(start_step, end_step, patch_list_file)
 %                     1. Master Directory: Uses 'patch.list' if found.
 %                     2. Single Patch: Processes the current directory if no list exists.
 %
-% ======================================================================
+%   ======================================================================
 %   MODIFICATION HEADER (StaMPS-HPC)
 %   ======================================================================
 %   Author:        Mingjia Li
@@ -272,7 +272,7 @@ function stamps(start_step, end_step, patch_list_file)
                 ps_calc_scla(0, 1);   
             else
                 ps_calc_scla(0, 1);
-                ps_smooth_scla;
+                ps_smooth_scla(0);
             end
         end
 

@@ -1,6 +1,6 @@
 # StaMPS-HPC: Core C/C++ Modules (Source Code)
 
-**Version:** 1.1.0  
+**Version:** 1.0  
 **Author:** Mingjia Li  
 **Status:** Performance-Enhanced / Parallelized Build  
 **Dependencies:** GCC (with OpenMP support), NVMe SSD (Recommended)
@@ -14,6 +14,25 @@ This directory contains the high-performance C/C++ core binaries for the **StaMP
 We have refactored the legacy code to leverage **OpenMP parallelization**, **optimized block I/O**, and **modern CPU instruction sets**, significantly reducing the processing time for large-scale datasets.
 
 ---
+
+## Quick Start: Compilation & Installation
+
+A unified `Makefile` is provided to handle the optimized compilation and deployment of all core modules. 
+
+Navigate to this `src` directory and run the following commands:
+
+```bash
+# Compile all modules with maximum optimization and install them to the ../bin directory
+make install
+
+# Clean up temporary compiled objects in the src directory
+make clean
+
+# (Optional) Remove installed binaries from the ../bin directory
+make uninstall
+
+```
+Note: The Makefile automatically detects your CPU architecture (-march=native) and applies OpenMP flags where necessary.
 
 ## 1. Amplitude Calibration (`calamp`)
 

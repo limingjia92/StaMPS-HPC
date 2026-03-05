@@ -1,5 +1,6 @@
 # MATLAB MEX Optimization Module
 
+**Version:** 1.0.0  
 **Maintainer:** Mingjia Li  
 **Context:** StaMPS-HPC Optimization Project  
 **Date:** December 2025
