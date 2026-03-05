@@ -3,7 +3,7 @@
 **Version:** 1.0.0  
 **Maintainer:** Mingjia Li  
 **Context:** StaMPS-HPC Optimization Project  
-**Date:** December 2025
+**Date:** March 2026
 
 ---
 
@@ -12,6 +12,22 @@
 This directory contains the **C-MEX (MATLAB Executable)** source codes designed to replace the most computationally intensive MATLAB scripts in the StaMPS processing chain. 
 
 By offloading Fast Fourier Transforms (FFT), convolution, and iterative grid searches to compiled C code, we achieve significant performance gains while maintaining numerical consistency with the original algorithms.
+
+## 🚀 Quick Start: Automated Compilation
+
+We have integrated an automated, headless MATLAB compilation workflow using a unified `Makefile` and the `build_mex.m` function. **You no longer need to open the MATLAB GUI or manually input `mex` commands.**
+
+Ensure the `matlab` command is available in your system's PATH, then simply run the following commands in this directory:
+
+```bash
+# Launch headless MATLAB to compile all C-MEX files with OpenMP acceleration
+make
+
+# Clean up compiled MEX binaries and temporary object files
+make clean
+```
+
+Note: The Makefile automatically invokes build_mex.m in batch mode (-batch) and applies the optimal -fopenmp and -O3 flags.
 
 ## 📝 Detailed Change Log
 
@@ -23,7 +39,7 @@ By offloading Fast Fourier Transforms (FFT), convolution, and iterative grid sea
 
 ### 2. `clap_filt_mex.c` (Replaces `clap_filt.m`)
 * **Bottleneck Solved:** Heavy usage of `fft2`, `ifft2`, and `filter2` inside nested loops for sliding window processing.
-* **Key Optimization:**
+* **Key Optimization:**.
     * **Trigonometric Lookup Tables (LUT):** Pre-calculated sin/cos values for DFT, eliminating redundant math library calls.
     * **Separable Convolution:** Decomposed the 7x7 Gaussian kernel into 1D filters, reducing operation count by ~70%.
     * Parallelized window processing using OpenMP.
@@ -34,29 +50,6 @@ By offloading Fast Fourier Transforms (FFT), convolution, and iterative grid sea
     * **Batch Processing:** The loop over candidates is moved inside the C kernel.
     * **Kernel Normalization:** Added specific normalization logic to ensure the convolution output magnitude matches MATLAB's built-in filter exactly.
     * Added explicit **NaN handling** to safeguard against edge-case data corruption.
-
----
-
-## ⚙️ Compilation Instructions
-
-To activate the acceleration modules, compile the source files within the MATLAB environment.
-
-### Prerequisites
-* **Compiler:** GCC 6.3.x or later (Linux/WSL2).
-* **Architecture:** MATLAB R2018a or later (64-bit).
-
-### Build Commands
-Execute the following commands in the MATLAB Command Window:
-
-``matlab
-% Compile Step 2 Modules (clap_filt & ps_topofit)
-mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" clap_filt_mex.c
-mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" ps_topofit_mex.c
-
-% Compile Step 3 Modules (clap_filt_patch)
-mex -R2018a CFLAGS="$CFLAGS -fopenmp -O3" LDFLAGS="$LDFLAGS -fopenmp" clap_filt_patch_mex.c
-
----
 
 ## 🚀 Usage & Configuration
 ### File Priority

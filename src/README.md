@@ -22,15 +22,17 @@ A unified `Makefile` is provided to handle the optimized compilation and deploym
 Navigate to this `src` directory and run the following commands:
 
 ```bash
-# Compile all modules with maximum optimization and install them to the ../bin directory
+# Compile all modules and install them to the target directory (../bin/)
 make install
 
-# Clean up temporary compiled objects in the src directory
-make clean
-
-# (Optional) Remove installed binaries from the ../bin directory
+# (Optional) Remove the installed binaries from the target directory (../bin/)
 make uninstall
 
+# (Optional) Compile all modules and keep the executables in the current directory (src/)
+make        # or 'make all'
+
+# (Optional) Clean up the compiled binaries generated in the current directory (src/)
+make clean
 ```
 Note: The Makefile automatically detects your CPU architecture (-march=native) and applies OpenMP flags where necessary.
 

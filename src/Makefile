@@ -9,12 +9,20 @@
 #   make uninstall  - Remove binaries from INSTALL_DIR          #
 #                                                               #
 # Optimized for modern HPC architectures (OpenMP, SIMD)         #
+# Author: Mingjia Li                                            #
+# Date:   March 2026                                            #
 #################################################################
 
 # Compiler settings
 CC = g++
-CFLAGS = -O3 -march=native -Wall
+
+# Optimization levels based on specific module requirements
+CFLAGS_BASE = -O3 -Wall
+CFLAGS_NATIVE = $(CFLAGS_BASE) -march=native
+CFLAGS_FASTMATH = $(CFLAGS_NATIVE) -ffast-math
+
 OMPFLAGS = -fopenmp
+LDLIBS = -lm
 
 # Target installation directory
 INSTALL_DIR = ../bin
@@ -25,29 +33,30 @@ PROGS = calamp pscphase pscdem psclonlat pscheading selpsc_patch selsbc_patch
 # Default target
 all: $(PROGS)
 
-# Compile with OpenMP support
-calamp: calamp.c
-	$(CC) $(CFLAGS) $(OMPFLAGS) -o $@ $^
+# 1. calamp: OpenMP + Native optimization
+calamp: calamp_opt.c
+	$(CC) $(CFLAGS_NATIVE) $(OMPFLAGS) -o $@ $^
 
-# Compile with SIMD/native optimization
+# 2. Patch selection: Native optimization + Fast-Math + Math Library (-lm)
+selpsc_patch: selpsc_patch_opt.c
+	$(CC) $(CFLAGS_FASTMATH) -o $@ $^ $(LDLIBS)
+
+selsbc_patch: selsbc_patch_opt.c
+	$(CC) $(CFLAGS_FASTMATH) -o $@ $^ $(LDLIBS)
+
+# 3. pscphase: Base optimization only (matching your specific command)
 pscphase: pscphase_opt.c
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS_BASE) -o $@ $^
 
+# 4. Others: Native optimization
 pscdem: pscdem_opt.c
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS_NATIVE) -o $@ $^
 
 psclonlat: psclonlat_opt.c
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS_NATIVE) -o $@ $^
 
 pscheading: pscheading.c
-	$(CC) $(CFLAGS) -o $@ $^
-
-# Compile patch selection modules
-selpsc_patch: selpsc_patch.c
-	$(CC) $(CFLAGS) -o $@ $^
-
-selsbc_patch: selsbc_patch.c
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS_NATIVE) -o $@ $^
 
 # Clean compiled binaries from src/
 clean:
@@ -61,7 +70,7 @@ install: $(PROGS)
 		echo "Created directory: $(INSTALL_DIR)"; \
 	fi
 	@echo "Installing binaries to $(INSTALL_DIR)..."
-	@cp -f $(PROGS) $(INSTALL_DIR)/
+	@mv -f $(PROGS) $(INSTALL_DIR)/
 	@echo "Installation complete."
 
 # Remove installed binaries from INSTALL_DIR

@@ -138,6 +138,8 @@ try {
   if (argc < 6) 
      meanoutname="mean_amp.flt";
   else meanoutname = argv[5];   
+  
+  (void)meanoutname;
 
   const char *prec;
   if (argc < 7)
@@ -237,7 +239,6 @@ try {
   patchfile >> az_end;
   patchfile.close();
 
-  const int sizeoffloat=4; 
   int sizeofelement; 
   if (prec[0]=='s')
   {

@@ -159,6 +159,8 @@ int main(int argc, char* argv[]) {
         if (argc < 6)
             meanoutname = "mean_amp.flt";
         else meanoutname = argv[5];
+        
+        (void)meanoutname;
 
         const char* prec;
         if (argc < 7)
@@ -285,7 +287,6 @@ int main(int argc, char* argv[]) {
 
         const int linebytes = width * sizeofelement * 2;
         const int patch_linebytes = patch_width * sizeofelement * 2;
-        const int patch_amp_linebytes = patch_width * sizeofelement;
 
         filebuf* pbuf;
         long size;
@@ -310,11 +311,9 @@ int main(int argc, char* argv[]) {
         ofstream ijfile(ijname, ios::out);
         ofstream jifile(jiname, ios::out);
         ofstream daoutfile(daoutname, ios::out);
-        ofstream meanoutfile(meanoutname, ios::out);
 
         // Optimization: Adaptive buffer size
         const int LineInBufferMax = 128; // Increased buffer size
-        int LineInBuffer = std::min(LineInBufferMax, patch_lines);
 
         // Memory allocation
         // Buffer stores [num_files] blocks. Each block has [LineInBufferMax] lines. Each line is [patch_linebytes] long.
@@ -471,8 +470,6 @@ int main(int argc, char* argv[]) {
                         }
                     }
 
-                    meanoutfile.write(reinterpret_cast<char*>(&sumamp), sizeoffloat);
-
                     if (mask_line_ptr[x] == 0 && sumamp > 0) {
                         // Amplitude dispersion^2
                         // D_sq = num_files * sumampsq / (sumamp * sumamp) - 1;
@@ -518,7 +515,6 @@ int main(int argc, char* argv[]) {
         ijfile.close();
         jifile.close();
         daoutfile.close();
-        meanoutfile.close();
         
         if (mask_exists == 1) {
             maskfile.close();
