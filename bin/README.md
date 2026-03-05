@@ -36,7 +36,7 @@ These wrapper scripts have been extensively refactored to support **parallel pat
 
 The general workflow for processing data using these scripts involves stacking the SLCs first, followed by patch preparation. 
 
-**Example Workflow for ISCE2 (PS Processing):**
+### Example Workflow for ISCE2 (PS Processing):
 ```bash
 # Step 1: Prepare the ISCE2 stack (Reference date: 20220104)
 make_isce_stack_ps.sh 20220104 merged/SLC merged/geom_reference merged/baselines
@@ -48,9 +48,11 @@ prep_stamps_isce.sh INSAR_20220104 work_dir 0.4 4 8 5
 
 (For detailed parameter inputs, simply run any of the scripts without arguments to view the usage menu).
 
+---
+
 ## ⚙️ Performance & Configuration
 
-**I/O Bottleneck Warning**
+### I/O Bottleneck Warning
 
 While the prep_stamps_*.sh scripts fully support multi-core parallelization via the jobmaxnum argument, performance during extraction is heavily bottlenecked by disk read/write speeds.
 
@@ -58,6 +60,6 @@ While the prep_stamps_*.sh scripts fully support multi-core parallelization via 
 
 * **Mechanical HDDs:** Increasing jobmaxnum may decrease overall performance due to severe disk thrashing. Limit parallel jobs to 1 or 2 if operating on HDDs.
 
-**Path Configuration**
+### Path Configuration
 
 Ensure that this bin directory is accessible in your system's $PATH. If you have executed the top-level StaMPS_CONFIG.bash script, this requirement is already handled automatically.
