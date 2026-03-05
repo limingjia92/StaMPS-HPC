@@ -13,6 +13,8 @@ This directory contains the **C-MEX (MATLAB Executable)** source codes designed 
 
 By offloading Fast Fourier Transforms (FFT), convolution, and iterative grid searches to compiled C code, we achieve significant performance gains while maintaining numerical consistency with the original algorithms.
 
+---
+
 ## 🚀 Quick Start: Automated Compilation
 
 We have integrated an automated, headless MATLAB compilation workflow using a unified `Makefile` and the `build_mex.m` function. **You no longer need to open the MATLAB GUI or manually input `mex` commands.**
@@ -28,6 +30,8 @@ make clean
 ```
 
 Note: The Makefile automatically invokes build_mex.m in batch mode (-batch) and applies the optimal -fopenmp and -O3 flags.
+
+---
 
 ## 📝 Detailed Change Log
 
@@ -50,6 +54,8 @@ Note: The Makefile automatically invokes build_mex.m in batch mode (-batch) and 
     * **Batch Processing:** The loop over candidates is moved inside the C kernel.
     * **Kernel Normalization:** Added specific normalization logic to ensure the convolution output magnitude matches MATLAB's built-in filter exactly.
     * Added explicit **NaN handling** to safeguard against edge-case data corruption.
+
+---
 
 ## 🚀 Usage & Configuration
 ### File Priority
