@@ -34,7 +34,7 @@ setparm('plot_color_scheme', 'GMT_relief')
 ps_plot('v')
 ```
 
-###Common Colormap Recommendations
+### Common Colormap Recommendations
 
 While you can explore all 30+ files, here are a few commonly used options for InSAR data:
 
@@ -44,7 +44,7 @@ While you can explore all 30+ files, here are a few commonly used options for In
 
  * **GMT_wysiwyg* : Useful for wrapping phase visualization.
 
-###Adding Custom Colormaps
+### Adding Custom Colormaps
 
 You are welcome to supplement this directory with your own custom GMT .cpt files to further expand your visualization options. If you choose to add new palettes, please ensure that their internal formatting is standard and can be correctly parsed by the cptcmap.m function.
 
