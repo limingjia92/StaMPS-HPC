@@ -43,7 +43,11 @@ While you can explore all 30+ files, here are a few commonly used options for In
  * GMT_relief / GMT_globe : Ideal for topographic (DEM) mapping.
 
  * GMT_wysiwyg : Useful for wrapping phase visualization.
- 
+
+**Adding Custom Colormaps**
+
+You are welcome to supplement this directory with your own custom GMT .cpt files to further expand your visualization options. If you choose to add new palettes, please ensure that their internal formatting is standard and can be correctly parsed by the cptcmap.m function.
+
 ## ⚠️ Important Note
 
 Do not delete this directory. If the specified .cpt file is missing, the ps_plot.m function will fail to locate the requested color scheme via cptcmap.m and may result in an error or force a fallback to suboptimal default MATLAB colormaps (like jet).
