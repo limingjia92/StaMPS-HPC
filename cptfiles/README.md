@@ -34,19 +34,21 @@ setparm('plot_color_scheme', 'GMT_relief')
 ps_plot('v')
 ```
 
-**Common Colormap Recommendations**
+###Common Colormap Recommendations
 
 While you can explore all 30+ files, here are a few commonly used options for InSAR data:
 
- * GMT_polar / GMT_seis : Excellent for diverging data like deformation velocity (where 0 is a neutral color, positive is blue/cool, and negative is red/warm).
+ * **GMT_red2green / GMT_seis* : Excellent for diverging data like deformation velocity (where 0 is a neutral color, positive is blue/cool, and negative is red/warm).
 
- * GMT_relief / GMT_globe : Ideal for topographic (DEM) mapping.
+ * **GMT_relief / GMT_globe* : Ideal for topographic (DEM) mapping.
 
- * GMT_wysiwyg : Useful for wrapping phase visualization.
+ * **GMT_wysiwyg* : Useful for wrapping phase visualization.
 
-**Adding Custom Colormaps**
+###Adding Custom Colormaps
 
 You are welcome to supplement this directory with your own custom GMT .cpt files to further expand your visualization options. If you choose to add new palettes, please ensure that their internal formatting is standard and can be correctly parsed by the cptcmap.m function.
+
+---
 
 ## ⚠️ Important Note
 
