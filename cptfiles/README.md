@@ -38,11 +38,11 @@ ps_plot('v')
 
 While you can explore all 30+ files, here are a few commonly used options for InSAR data:
 
- * **GMT_red2green / GMT_seis* : Excellent for diverging data like deformation velocity (where 0 is a neutral color, positive is blue/cool, and negative is red/warm).
+ * **GMT_red2green / GMT_seis** : Excellent for diverging data like deformation velocity (where 0 is a neutral color, positive is blue/cool, and negative is red/warm).
 
- * **GMT_relief / GMT_globe* : Ideal for topographic (DEM) mapping.
+ * **GMT_relief / GMT_globe** : Ideal for topographic (DEM) mapping.
 
- * **GMT_wysiwyg* : Useful for wrapping phase visualization.
+ * **GMT_wysiwyg** : Useful for wrapping phase visualization.
 
 ### Adding Custom Colormaps
 
