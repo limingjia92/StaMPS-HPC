@@ -11,11 +11,10 @@ Through a rigorous, ground-up refactoring effort across C/C++, MATLAB, and Bash 
 
 ## Key Features & Innovations
 
-* **Hybrid Parallel Acceleration**: Multi-threaded execution via OpenMP has been implemented across both the C/C++ core binaries and the MATLAB C-MEX modules. Computationally heavy tasks such as FFTs, spatial convolutions, and intensive grid searches have been completely offloaded from MATLAB to compiled C kernels.
-* **Extreme I/O Optimization**: We abandoned legacy line-by-line file reading in favor of Block-I/O and Full-Memory reading strategies, drastically minimizing mechanical disk latency. In MATLAB, a "Variable-Centric" Parfor architecture coupled with Cell Array Buffering completely eliminates memory thrashing and fragmentation during massive patch merging.
-* **Algorithmic Refactoring**: The legacy MATLAB engine was aggressively streamlined, reducing the number of executable `.m` files from over 120 down to 59 essential functions. Slow $O(N)$ `for`-loops were eradicated and replaced with native vectorization (e.g., `accumarray`, `discretize`). Furthermore, computationally suffocating complex exponential arithmetic was refactored into the Real Number Domain.
-* **Modernized Ecosystem & Visualization**: Pre-processing bash wrappers now fully support multi-core concurrent patch extraction for ISCE2 and GAMMA. The visualization engine has been overhauled to integrate 30+ standard Generic Mapping Tools (GMT) Colormaps (`.cpt`), outputting publication-quality figures seamlessly. We also introduced exclusive utilities like `ps_export_kmz` for massive point-cloud rasterization and `profile_plot` for instantaneous interactive swath profiling.
-
+* **Hybrid Parallel Computing**: Integrated OpenMP multi-threading across C/C++ binaries and MATLAB C-MEX modules, offloading computationally heavy tasks (e.g., FFTs, spatial convolutions) directly to compiled C kernels.
+* **Extreme I/O & Memory Control**: Replaced legacy line-by-line file reading with Block-I/O strategies to minimize disk latency. Solved MATLAB memory thrashing during massive patch merging via a novel "Variable-Centric" `parfor` architecture.
+* **Algorithmic Refactoring**: Streamlined the MATLAB engine from 120+ to 59 core scripts. Eradicated slow O(N) loops in favor of native vectorization (`accumarray`, `discretize`) and refactored suffocating complex exponential arithmetic into the Real Number Domain.
+* **Modernized Ecosystem & UX**: Enabled multi-core concurrent patch extraction for ISCE2 and GAMMA. Overhauled the visualization engine with 30+ standard GMT Colormaps (`.cpt`) and introduced new interactive utilities (`ps_export_kmz`, `profile_plot`).
 ---
 
 ## Performance Benchmarks
