@@ -2,7 +2,7 @@ function sb_parms_initial()
 %SB_PARMS_INITIAL Initialize parms for SBAS processing (HPC Standardized)
 %   Sets small_baseline_flag='y' and detects processor type.
 %   Andy Hooper, Jan 2008
-%   Updated January 2026
+%   Updated Mingjia Li, January 2026
 
     parmfile = 'parms.mat';
     

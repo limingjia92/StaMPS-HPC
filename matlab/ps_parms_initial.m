@@ -2,7 +2,7 @@ function ps_parms_initial()
 %PS_PARMS_INITIAL Initialize parms for PS processing (HPC Standardized)
 %   Sets small_baseline_flag='n' and detects processor type.
 %   Andy Hooper, Jan 2008
-%   Updated January 2026
+%   Updated Mingjia Li, January 2026
 
     parmfile = 'parms.mat';
     

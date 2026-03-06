@@ -6,13 +6,13 @@ function ps_parms_default()
 %   MODIFICATION HEADER (StaMPS-HPC)
 %   ======================================================================
 %   Author:        Mingjia Li
-%   Date:          January 2026
+%   Date:          March 2026
 %   Version:       1.0 
 %   License:       GPL v3.0 (Inherited from StaMPS)
 %
 %   HPC Optimization:
-%   1. Framework Optimization: Minimized I/O overhead .
-%   2. Parameter Cleanup: Removed obsolete legacy parameters
+%   1. Framework Optimization: Minimized I/O overhead.
+%   2. Parameter Cleanup: Removed obsolete legacy parameters.
 %   3. Annotation: Fully annotated every parameter for clarity and maintainability.
 %
 %   ======================================================================
@@ -32,12 +32,16 @@ function ps_parms_default()
         parms = load(parmfile_path);
     else
         parms = struct('Created', date);
+    end
+
+    % Robustness check: Ensure small_baseline_flag exists even if loaded from old .mat
+    if ~isfield(parms, 'small_baseline_flag')
         parms.small_baseline_flag = 'n'; 
     end
 
     % Snapshot fields to track changes for logging
     parmfields_before = fieldnames(parms);
-    num_fields = size(parmfields_before, 1);
+    num_fields = length(parmfields_before);
 
     % =========================================================================
     % STEP 2: ESTIMATE PHASE NOISE
@@ -239,7 +243,7 @@ function ps_parms_default()
         parms.scn_kriging_flag = 'n';       % Use kriging-based SCN filtering (computationally expensive).
     end
     if ~isfield(parms,'krig_atmo')
-        parms.krig_atmo = 'y';       % 
+        parms.krig_atmo = 'y';              % Estimating Atmospheric Phase Screen using spatial Kriging (computationally expensive).
     end
 
     % =========================================================================
@@ -285,10 +289,10 @@ function ps_parms_default()
         parms.lonlat_offset = [0,0];        % Manual [lon, lat] offset to align PS points with DEM.
     end
     if ~isfield(parms,'plot_lon_rg')
-        parms.plot_lon_rg = [ ];        % Area longitude range for figure plot in ps_plot
+        parms.plot_lon_rg = [ ];            % Area longitude range for figure plot in ps_plot
     end
     if ~isfield(parms,'plot_lat_rg')
-        parms.plot_lat_rg = [ ];        % Area latitude range for figure plot in ps_plot
+        parms.plot_lat_rg = [ ];            % Area latitude range for figure plot in ps_plot
     end
 
     % =========================================================================
@@ -353,22 +357,22 @@ function ps_parms_default()
     
     parmfields = fieldnames(parms);
     % Check if any new fields were added
-    if size(parmfields, 1) ~= num_fields
+    if length(parmfields) ~= num_fields
         try
             save(parmfile_path, '-struct', 'parms');
             
             % Optimized Logging
             log_buffer = {};
-            for i = 1:size(parmfields, 1)
-                if isempty(strmatch(parmfields{i}, parmfields_before)) 
+            for i = 1:length(parmfields)
+                if ~ismember(parmfields{i}, parmfields_before)
                    parmname = parmfields{i};
                    val = parms.(parmname);
                    
                    val_str = '[]';
                    if isnumeric(val)
-                       val_str = num2str(val);
+                       val_str = mat2str(val); % Safely handles arrays like [-inf, inf]
                    elseif ischar(val)
-                       val_str = val;
+                       val_str = ['''', val, '''']; % Formats strings nicely with quotes
                    end
                    
                    log_buffer{end+1} = [parmname, ' = ', val_str];

@@ -13,7 +13,7 @@ function []=setparm(parmname,value,newflag)
 %   ======================================================================
 %   Author:        Mingjia Li
 %   Date:          January 2026
-%   Version:       1.0 (HPC-Math)
+%   Version:       1.0 (StaMPS-HPC)
 %   License:       GPL v3.0 (Inherited from StaMPS)
 %
 %   ======================================================================
