@@ -29,7 +29,7 @@ Significant engineering focus was placed on eliminating algorithmic bottlenecks 
 | **Step 3** (`ps_select`) | 2564s | **116s** | **22.1x** | Loop Elimination, Hybrid Kernel |
 | **Step 5.5** (`ps_calc_ifg_std`) | 171s | **41s** | **4.2x** | Direct Phase Arithmetic, Fast Wrapping, Memory Reduction |
 | **Step 5.5** (`ps_merge_patches`) | 1470s | **600s** | **2.8x** | Variable-Centric Parfor, Cell Array Buffering |
-| **Step 6** (`ps_unwrap`) | *** | *** | **\*\*x** | Structural Optimization, Parallel Execution, Snaphu Optimization |
+| **Step 6** (`ps_unwrap`) | 1068s | **411s** | **2.6x** | Structural Optimization, Parallel Execution, Snaphu Optimization |
 | **Step 7** (`ps_calc_scla`) | 29s | **14s** | **2.1x** | L2 Vectorization & Precision, L1 Vectorized IRLS |
 | **Step 7** (`ps_smooth_scla`) | 252s | **47s** | **5.4x** | Topology Generation, Vectorized Graph Traversal, Memory Projection |
 | **Step 8** (`ps_scn_filt`) | 529s | **80s** | **6.6x** | Topology Generation, Vectorized Filtering & Solving |
