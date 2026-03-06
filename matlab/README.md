@@ -3,7 +3,7 @@
 **Version:** 1.0.0  
 **Maintainer:** Mingjia Li  
 **Context:** StaMPS-HPC Optimization Project  
-**Focus:** Bottleneck Elimination, Hybrid MEX/OpenMP Acceleration, and I/O Optimization 
+**Focus:** Bottleneck Elimination, Hybrid MEX/OpenMP Acceleration, and I/O Optimization
 
 ---
 
@@ -11,7 +11,7 @@
 
 This directory contains the central MATLAB processing engine for the **StaMPS-HPC** framework. 
 
-Through a rigorous, ground-up refactoring effort, the legacy StaMPS codebase has been aggressively streamlined—**reducing the number of executable `.m` files from over 120 down to 59 essential, highly optimized functions**. 
+Through a rigorous, ground-up refactoring effort, the legacy StaMPS codebase has been aggressively streamlined—reducing the number of executable `.m` files from over 120 down to 59 essential, highly optimized functions. 
 
 We have eliminated deprecated MATLAB syntax, eradicated redundant I/O operations, and replaced computationally suffocating loops with heavily vectorized matrix operations and direct C-MEX integrations. The result is a modernized, production-ready InSAR time-series processor capable of handling massive regional datasets.
 
@@ -19,7 +19,7 @@ We have eliminated deprecated MATLAB syntax, eradicated redundant I/O operations
 
 ## Performance Benchmarks
 
-Significant engineering focus was placed on eliminating the algorithmic bottlenecks present throughout the entire processing chain. The following benchmarks demonstrate the massive performance gains achieved through architectural refactoring, OpenMP-accelerated C-MEX kernels, and Batch Processing strategies.
+Significant engineering focus was placed on eliminating algorithmic bottlenecks present throughout the entire processing chain. Benchmarks demonstrate massive performance gains achieved through architectural refactoring, OpenMP-accelerated C-MEX kernels, and Batch Processing strategies.
 
 *(Tested on Reference Dataset with SSD storage)*
 
@@ -40,56 +40,68 @@ Significant engineering focus was placed on eliminating the algorithmic bottlene
 ## Key Engineering Philosophies
 
 1. **Vectorization over Iteration:** O(N) `for`-loops across millions of PS candidates were systematically eradicated and replaced with native MATLAB vectorization (e.g., `accumarray`, `discretize`, and logical masking).
-2. **Mathematical Optimization & Memory Efficiency:** Legacy implementations relied on computationally expensive complex exponential arithmetic (`exp(-j*...)`) and `angle()` functions, which generated massive temporary complex arrays and stressed memory bandwidth. These were refactored to operate entirely in the **Real Number Domain** using direct phase subtraction and lightweight `mod(x, 2*pi)` wrappers.
-3. **C-MEX & OpenMP Integration:** The most intensive grid searches, spatial convolutions, and filtering loops are automatically handed off to the optimized C-MEX binaries compiled in the `matlab_mex` directory.
-4. **Variable-Centric Parallel Architecture:** Process-heavy modules (like patch merging) abandoned the slow "Patch-by-Patch" memory-thrashing approach. Data is now processed one variable at a time using `parfor` and Cell Array Buffering, achieving ~11.6x improvement in CPU efficiency while capping memory footprints.
+2. **Mathematical Optimization & Memory Efficiency:** Legacy implementations relied on computationally expensive complex exponential arithmetic (`exp(-j*...)`) and `angle()` functions, which generated massive temporary complex arrays. These were refactored to operate entirely in the Real Number Domain using direct phase subtraction and lightweight `mod(x, 2*pi)` wrappers.
+3. **C-MEX & OpenMP Integration:** Intensive grid searches, spatial convolutions, and filtering loops are automatically handed off to optimized C-MEX binaries compiled in the `matlab_mex` directory.
+4. **Variable-Centric Parallel Architecture:** Process-heavy modules abandoned the slow "Patch-by-Patch" memory-thrashing approach. Data is now processed one variable at a time using `parfor` and Cell Array Buffering, achieving massive CPU efficiency while capping memory footprints.
 5. **I/O Consolidation:** Time-consuming `stamps_save` operations were moved outside main iteration loops, drastically reducing disk I/O latency.
 
 ---
+
 ## Core Processing Chain (Step-by-Step)
 
 ### Master Control & Step 1: Initial Ingestion (`stamps`, `load_initial_*`)
-* **Workflow & Batch Control (`stamps.m`)**: Decoupled distributed patch processing to natively support parallel job arrays[cite: 10]. Enforced optimized estimation algorithms and integrated external patch list files for precise batch control[cite: 11, 12].
-* **Vectorized I/O & Interpolation**: In data loading (GAMMA/ISCE), iterative loops were eradicated in favor of matrix `fread` and fast Regex parsing[cite: 22, 27]. Replaced legacy `griddata` with the highly efficient `interp2` for regular grid interpolation[cite: 23, 28]. Consolidated dependencies (e.g., merging `readparm`) to drastically reduce file handle overhead[cite: 14, 21].
+* **Workflow & Batch Control (`stamps.m`)**: Decoupled distributed patch processing to natively support parallel job arrays. Enforced optimized estimation algorithms and integrated external patch list files for precise batch control.
+* **Vectorized I/O & Interpolation**: In data loading (GAMMA/ISCE), iterative loops were eradicated in favor of matrix `fread` and fast Regex parsing. Replaced legacy `griddata` with the highly efficient `interp2` for regular grid interpolation. Consolidated dependencies (e.g., merging `readparm`) to drastically reduce file handle overhead.
 
 ### Step 2: Phase Noise Estimation (`ps_est_gamma_quick`)
-* **Hybrid Kernels**: Offloaded heavy FFT and convolution operations to OpenMP-accelerated C-MEX binaries (`clap_filt_mex`)[cite: 31].
-* **Matrix Indexing & I/O**: Replaced slow iterative `squeeze` operations with direct linear indexing[cite: 32]. Moved the time-consuming `stamps_save` operation **outside** the main iteration loop, significantly reducing disk I/O latency while maintaining strict numerical consistency[cite: 33, 34].
+* **Hybrid Kernels**: Offloaded heavy FFT and convolution operations to OpenMP-accelerated C-MEX binaries (`clap_filt_mex`).
+* **Matrix Indexing & I/O**: Replaced slow iterative `squeeze` operations with direct linear indexing. Moved the time-consuming `stamps_save` operation outside the main iteration loop, significantly reducing disk I/O latency while maintaining strict numerical consistency.
 
 ### Step 3 & 4: Candidate Selection & Weeding (`ps_select`, `ps_weed`)
-* **Batch Processing Strategy**: Replaced massive pixel-wise MATLAB loops with a single, highly optimized MEX call (`clap_filt_patch_mex`), eliminating interpreter overhead[cite: 36]. Integrated OpenMP multi-threading for phase filtering[cite: 37].
-* **Topofit Toggle**: Introduced `use_fast_topofit` parameter, offering a choice between ultra-fast MEX topofit and exact-precision MATLAB topofit[cite: 37, 38, 39]. 
+* **Batch Processing Strategy**: Replaced massive pixel-wise MATLAB loops with a single, highly optimized MEX call (`clap_filt_patch_mex`), eliminating interpreter overhead. Integrated OpenMP multi-threading for phase filtering.
+* **Topofit Toggle**: Introduced `use_fast_topofit` parameter, offering a choice between ultra-fast MEX topofit and exact-precision MATLAB topofit.
 
 ### Step 5 & 5.5: Phase Correction, Patch Merging & Noise Estimation
-* **Two-Phase Parallel Merging (`ps_merge_patches`)**: Implemented a "Meta-Scan -> Parallel Stream" architecture[cite: 41, 42]. Utilized a **Variable-Centric Parfor** approach with Cell Array buffering to resolve dynamic slicing issues and eliminate memory fragmentation[cite: 43, 44, 45]. Selective I/O only loads necessary variables, bypassing entire workspace loads[cite: 46].
-* **Real-Domain Arithmetic (`ps_calc_ifg_std`)**: Refactored the noise estimation logic to operate entirely in the Real Number domain (`phase - correction`), dropping expensive complex exponential arithmetic (`exp(-j*...)`)[cite: 48]. Implemented a lightweight `mod(x, 2*pi)` wrapper to replace `angle(complex)`, drastically cutting temporary RAM usage[cite: 49, 50].
+* **Two-Phase Parallel Merging (`ps_merge_patches`)**: Implemented a "Meta-Scan -> Parallel Stream" architecture. Utilized a Variable-Centric Parfor approach with Cell Array buffering to resolve dynamic slicing issues and eliminate memory fragmentation. Selective I/O only loads necessary variables.
+* **Real-Domain Arithmetic (`ps_calc_ifg_std`)**: Refactored the noise estimation logic to operate entirely in the Real Number domain (`phase - correction`), dropping expensive complex exponential arithmetic (`exp(-j*...)`). Implemented a lightweight `mod(x, 2*pi)` wrapper to replace `angle(complex)`, drastically cutting temporary RAM usage.
 
 ### Step 6: 3D Phase Unwrapping (`ps_unwrap` & Sub-modules)
-* **Architecture & OS Independence**: Refactored spaghetti code into clean blocks and dynamically parameterized `n_trial_wraps` across sensors[cite: 51, 52]. Eradicated legacy external system calls (e.g., `triangle`) and `uw_nosnaphu`, enforcing a robust Snaphu-based workflow using MATLAB's native `delaunayTriangulation` and `nearestNeighbor`[cite: 53, 60, 61].
-* **Parallel Execution & Memory**: Utilized `parfor` for concurrent interferogram gridding and statistical cost generation[cite: 57, 70]. Leveraged `snaphu -S` (Tile Mode) with `NPROC=1` for single-threaded efficiency within workers[cite: 71]. Eliminated massive history matrices (~99% RAM saving) during smooth unwrapping via JIT-inlined objective functions[cite: 65, 66].
-* **Advanced Solver & Vectorization**: Replaced pixel-wise loops with vectorized matrix operations (`accumarray`)[cite: 55, 58]. Replaced the iterative `lscov` solver with a pre-calculated Generalized Least Squares (GLS) operator $H$ and implemented block chunking to minimize RAM footprints[cite: 73, 74].
+* **Architecture & OS Independence**: Refactored spaghetti code into clean blocks and dynamically parameterized `n_trial_wraps` across sensors. Eradicated legacy external system calls (e.g., `triangle`) and `uw_nosnaphu`, enforcing a robust Snaphu-based workflow using MATLAB's native `delaunayTriangulation` and `nearestNeighbor`.
+* **Parallel Execution & Memory**: Utilized `parfor` for concurrent interferogram gridding and statistical cost generation. Leveraged `snaphu -S` (Tile Mode) with `NPROC=1` for single-threaded efficiency within workers. Eliminated massive history matrices (~99% RAM saving) during smooth unwrapping via JIT-inlined objective functions.
+* **Advanced Solver & Vectorization**: Replaced pixel-wise loops with vectorized matrix operations (`accumarray`). Replaced the iterative `lscov` solver with a pre-calculated Generalized Least Squares (GLS) operator ($H$) and implemented block chunking to minimize RAM footprints.
 
 ### Step 7: Error Estimation (SCLA, Orbit & Atmosphere)
 * **L1/L2 Vectorization (`ps_calc_scla`)**: 
-    * **L2 Mode:** Replaced iterative `lscov` with a vectorized GLS matrix operator[cite: 77]. 
-    * **L1 Mode:** Completely eradicated the computationally suffocating `fminsearch`, replacing it with a fully vectorized Iteratively Reweighted Least Squares (IRLS) algorithm to boost speed and prevent local minima traps[cite: 78].
-* **Deramping (`ps_deramp`)**: Implemented a "Common Valid Pixel" strategy for consistent orbital plane estimation[cite: 75]. Replaced iterative solvers with vectorized QR decomposition (`\`) using BLAS Level 3[cite: 75].
-* **Graph Traversal & Projection (`ps_smooth_scla`)**: Replaced loop-heavy neighborhood searches with `accumarray` (dropping time to seconds)[cite: 81]. Substituted giant matrix transpose divisions with a pre-calculated projection operator ($Data * H_{op}'$) to eliminate OOM risks[cite: 82]. 
+    * **L2 Mode:** Replaced iterative `lscov` with a vectorized GLS matrix operator. 
+    * **L1 Mode:** Completely eradicated the computationally suffocating `fminsearch`, replacing it with a fully vectorized Iteratively Reweighted Least Squares (IRLS) algorithm to boost speed and prevent local minima traps.
+* **Deramping (`ps_deramp`)**: Implemented a "Common Valid Pixel" strategy for consistent orbital plane estimation. Replaced iterative solvers with vectorized QR decomposition (`\`) using BLAS Level 3.
+* **Graph Traversal & Projection (`ps_smooth_scla`)**: Replaced loop-heavy neighborhood searches with `accumarray` (dropping time to seconds). Substituted giant matrix transpose divisions with a pre-calculated projection operator ($Data * H_{op}'$) to eliminate OOM risks. 
 
 ### Step 8: Spatial Filtering & Kriging (`ps_scn_filt`, `ps_scn_filt_krig`)
-* **Topology & KD-Tree Search**: Shifted to in-memory `delaunayTriangulation` and robust KD-Tree spatial indexing (`rangesearch`, `knnsearch`), boosting speed and fixing heuristic neighborhood bugs[cite: 85, 87, 89, 92].
-* **Custom Micro-Solvers**: Bypassed `lsqcurvefit` entirely. Built a custom, inlined Levenberg-Marquardt solver with analytical Jacobians for variogram fitting (10x speedup)[cite: 91, 99]. Replaced ill-conditioned normal equations with QR decomposition (`A\y`) to fix catastrophic $2\pi$ unwrapping errors[cite: 90].
-* **Vectorized Kriging (`ps_kriging`)**: Suppressed OOM crashes via implicit expansion (dropping `repmat`), enforced $N_{max}$ data truncation, and hardcoded theoretical variogram models directly into loops to strip evaluation overheads[cite: 93, 94, 95].
+* **Topology & KD-Tree Search**: Shifted to in-memory `delaunayTriangulation` and robust KD-Tree spatial indexing (`rangesearch`, `knnsearch`), boosting speed and fixing heuristic neighborhood bugs.
+* **Custom Micro-Solvers**: Bypassed `lsqcurvefit` entirely. Built a custom, inlined Levenberg-Marquardt solver with analytical Jacobians for variogram fitting (10x speedup). Replaced ill-conditioned normal equations with QR decomposition (`A\y`) to fix catastrophic unwrapping errors.
+* **Vectorized Kriging (`ps_kriging`)**: Suppressed OOM crashes via implicit expansion (dropping `repmat`), enforced $N_{max}$ data truncation, and hardcoded theoretical variogram models directly into loops to strip evaluation overheads.
 
 ---
 
 ## Post-Processing, Models & Visualization
 
 ### Atmospheric & Ionospheric Corrections (`sb_invert_tca`, `sb_invert_iono`)
-* **String-Driven Architecture**: Refactored legacy `if-elseif` chains into performant `switch-case` logic using readable string flags (e.g., `'a_era5'`, `'i_split'`), while maintaining integer backward compatibility[cite: 106, 108, 109, 116].
-* **OOM Prevention**: Replaced double-transpose `lscov` operations with a memory-efficient projection operator ($H_{op}$)[cite: 105, 112]. Extended native support to ERA5, Mcandis stacking, and Split-Spectrum/TEC map integrations[cite: 110, 115].
+* **String-Driven Architecture**: Refactored legacy `if-elseif` chains into performant `switch-case` logic using readable string flags (e.g., `'a_era5'`, `'i_split'`), while maintaining integer backward compatibility.
+* **OOM Prevention**: Replaced double-transpose `lscov` operations with a memory-efficient projection operator ($H_{op}$). Extended native support to ERA5, Mcandis stacking, and Split-Spectrum/TEC map integrations.
 
 ### High-Performance Interactive Rendering (`ps_plot`, `ts_plotdiff`, `profile_plot`)
-* **Zero I/O & Memory Encapsulation**: Legacy workspace pollution was eliminated. Time-Series UIs now utilize figure-bound `appdata` for encapsulated, conflict-free interactions[cite: 141, 158]. Functions like `ps_plot_ifg` and `env_oscilator_corr` pass pre-loaded structures directly, averting secondary disk loads and memory bloat[cite: 143, 154].
-* **Vectorized UI Engines**: Eradicated outdated $O(N)$ pixel dilation and swath binning loops, replacing them with ultra-fast `accumarray` and `discretize` functions for instantaneous visualization[cite: 144, 166].
-* **Advanced UX**: Implemented robust global marker tracking to seamlessly manage crosshairs across tools[cite: 157, 162]. Modernized rendering palettes via `cptcmap` for robust GMT `.cpt` parsing and integrated interactive dual-axis swath profiles[cite: 142, 146, 152].---
+* **Zero I/O & Memory Encapsulation**: Legacy workspace pollution was eliminated. Time-Series UIs now utilize figure-bound `appdata` for encapsulated, conflict-free interactions. Functions like `ps_plot_ifg` and `env_oscilator_corr` pass pre-loaded structures directly, averting secondary disk loads and memory bloat.
+* **Vectorized UI Engines**: Eradicated outdated $O(N)$ pixel dilation and swath binning loops, replacing them with ultra-fast `accumarray` and `discretize` functions for instantaneous visualization.
+* **Advanced UX**: Implemented robust global marker tracking to seamlessly manage crosshairs across tools. Modernized rendering palettes via `cptcmap` for robust GMT `.cpt` parsing and integrated interactive dual-axis swath profiles.
+
+---
+
+## New Additions & Original Enhancements
+
+To further enrich the StaMPS-HPC ecosystem, several entirely new tools and utilities were developed from scratch to improve workflow transparency, large-scale data export, and visual analysis:
+
+* **`hpc_log_progress`**: A custom utility that generates a robust progress monitor specifically designed for `parfor` loops, ensuring visibility and progress tracking during heavy parallel execution.
+* **`ps_export_kmz`**: Enables the direct export of large-scale PS point clouds into rasterized KMZ files. This overcomes the severe rendering limitations of standard KMLs when dealing with millions of scatterers on platforms like Google Earth.
+* **`plot_patch_kml_gamma` & `plot_patch_kml_isce`**: New utilities to instantly generate KML files that visualize the spatial boundaries and distribution of StaMPS patches derived directly from GAMMA or ISCE workflows.
+* **`profile_plot`**: A fully interactive swath profile plotting tool. It features mouse-driven dual-point selection, dynamic line rendering, and synchronized dual-Y axes for topography and deformation velocity. It utilizes `discretize` and `accumarray` for instantaneous $O(1)$ binning, completely eradicating legacy looping delays.
