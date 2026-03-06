@@ -11,7 +11,7 @@ Through a rigorous, ground-up refactoring effort across C/C++, MATLAB, and Bash 
 
 ## Key Features & Innovations
 
-* **Hybrid Parallel Computing**: Integrated OpenMP multi-threading across C/C++ binaries and MATLAB C-MEX modules, offloading computationally heavy tasks (e.g., FFTs, spatial convolutions) directly to compiled C kernels.
+* **Hybrid Parallel Computing**: Integrated **OpenMP multi-threading** across C/C++ binaries and MATLAB C-MEX modules, offloading computationally heavy tasks (e.g., FFTs, spatial convolutions) directly to compiled C kernels.
 * **Extreme I/O & Memory Control**: Replaced legacy line-by-line file reading with Block-I/O strategies to minimize disk latency. Solved MATLAB memory thrashing during massive patch merging via a novel "Variable-Centric" `parfor` architecture.
 * **Algorithmic Refactoring**: Streamlined the MATLAB engine from 120+ to 59 core scripts. Eradicated slow O(N) loops in favor of native vectorization (`accumarray`, `discretize`) and refactored suffocating complex exponential arithmetic into the Real Number Domain.
 * **Modernized Ecosystem & UX**: Enabled multi-core concurrent patch extraction for ISCE2 and GAMMA. Overhauled the visualization engine with 30+ standard GMT Colormaps (`.cpt`) and introduced new interactive utilities (`ps_export_kmz`, `profile_plot`).
