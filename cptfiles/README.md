@@ -7,7 +7,7 @@
 
 ---
 
-## 📌 Module Overview
+## Module Overview
 
 This directory contains approximately 30 **Generic Mapping Tools (GMT)** Color Palette Table (`.cpt`) files. 
 
@@ -17,7 +17,7 @@ Within the StaMPS-HPC framework, these files are seamlessly read and parsed by t
 
 ---
 
-## 🚀 Usage & Configuration
+## Usage & Configuration
 
 You do not need to manually edit or compile any files in this directory. 
 
@@ -50,6 +50,6 @@ You are welcome to supplement this directory with your own custom GMT .cpt files
 
 ---
 
-## ⚠️ Important Note
+## Important Note
 
 Do not delete this directory. If the specified .cpt file is missing, the ps_plot.m function will fail to locate the requested color scheme via cptcmap.m and may result in an error or force a fallback to suboptimal default MATLAB colormaps (like jet).

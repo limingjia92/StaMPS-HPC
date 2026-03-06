@@ -7,7 +7,7 @@
 
 ---
 
-## 📌 Module Overview
+## Module Overview
 
 This directory contains the **C-MEX (MATLAB Executable)** source codes designed to replace the most computationally intensive MATLAB scripts in the StaMPS processing chain. 
 
@@ -15,7 +15,7 @@ By offloading Fast Fourier Transforms (FFT), convolution, and iterative grid sea
 
 ---
 
-## 🚀 Quick Start: Automated Compilation
+## Quick Start: Automated Compilation
 
 We have integrated an automated, headless MATLAB compilation workflow using a unified `Makefile` and the `build_mex.m` function. **You no longer need to open the MATLAB GUI or manually input `mex` commands.**
 
@@ -33,7 +33,7 @@ Note: The Makefile automatically invokes build_mex.m in batch mode (-batch) and 
 
 ---
 
-## 📝 Detailed Change Log
+## Detailed Change Log
 
 ### 1. `ps_topofit_mex.c` (Replaces `ps_topofit.m`)
 * **Bottleneck Solved:** The original MATLAB script used a slow iterative loop for "Coarse Search" estimation of look-angle errors.
@@ -57,7 +57,7 @@ Note: The Makefile automatically invokes build_mex.m in batch mode (-batch) and 
 
 ---
 
-## 🚀 Usage & Configuration
+## Usage & Configuration
 ### File Priority
 Once compiled, the resulting binary files (e.g., .mexa64 on Linux or .mexw64 on Windows) must be present in the MATLAB search path.
 

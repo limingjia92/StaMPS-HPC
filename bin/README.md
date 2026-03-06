@@ -7,7 +7,7 @@
 
 ---
 
-## 📌 Module Overview
+## Module Overview
 
 This directory contains the essential Bash shell scripts that serve as the high-performance bridge between modern InSAR processors (e.g., **ISCE2**, **GAMMA**) and the StaMPS-HPC core processing chain.
 
@@ -15,7 +15,7 @@ These wrapper scripts have been extensively refactored to support **parallel pat
 
 ---
 
-## 📝 Detailed Script Log
+## Detailed Script Log
 
 ### 1. ISCE2 Stack Preparation (`make_isce_stack_ps.sh` & `make_isce_stack_sbas.sh`)
 * **Function:** Prepares the Single Reference (PS) or Small Baselines (SBAS) stacks from ISCE2 SLC outputs (typically processed via `stackSentinel.py`).
@@ -32,7 +32,7 @@ These wrapper scripts have been extensively refactored to support **parallel pat
 
 ---
 
-## 🚀 Workflow & Usage
+## Workflow & Usage
 
 The general workflow for processing data using these scripts involves stacking the SLCs first, followed by patch preparation. 
 
@@ -50,7 +50,7 @@ prep_stamps_isce.sh INSAR_20220104 work_dir 0.4 4 8 5
 
 ---
 
-## ⚙️ Performance & Configuration
+## Performance & Configuration
 
 ### I/O Bottleneck Warning
 
