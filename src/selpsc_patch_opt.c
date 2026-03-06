@@ -278,7 +278,6 @@ int main(int argc, char* argv[]) {
         int patch_lines = az_end - az_start + 1;
         int patch_width = rg_end - rg_start + 1;
 
-        const int sizeoffloat = 4;
         int sizeofelement;
         if (prec[0] == 's') {
             sizeofelement = sizeof(short);
