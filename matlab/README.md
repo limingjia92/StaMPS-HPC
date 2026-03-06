@@ -21,14 +21,14 @@ We have eliminated deprecated MATLAB syntax, eradicated redundant I/O operations
 
 Significant engineering focus was placed on eliminating algorithmic bottlenecks present throughout the entire processing chain. Benchmarks demonstrate massive performance gains achieved through architectural refactoring, OpenMP-accelerated C-MEX kernels, and Batch Processing strategies.
 
-*(Tested on Reference Dataset with SSD storage)*
+*(Tested on Testing Dataset with HDD storage)*
 
 | Processing Module | Original Time | HPC Time | Speedup | Core Optimization Strategy |
 | :--- | :--- | :--- | :--- | :--- |
 | **Step 2** (`ps_est_gamma_quick`) | 474s | **327s** | **1.45x** | MEX Integration, Vectorization, I/O Efficiency |
 | **Step 3** (`ps_select`) | 2564s | **116s** | **22.1x** | Loop Elimination, Hybrid Kernel |
 | **Step 5.5** (`ps_calc_ifg_std`) | 171s | **41s** | **4.2x** | Direct Phase Arithmetic, Fast Wrapping, Memory Reduction |
-| **Step 5.5** (`ps_merge_patches`) | 29m | **10m** | **2.8x** | Variable-Centric Parfor, Cell Array Buffering |
+| **Step 5.5** (`ps_merge_patches`) | 1470s | **600s** | **2.8x** | Variable-Centric Parfor, Cell Array Buffering |
 | **Step 6** (`ps_unwrap`) | *** | *** | **\*\*x** | Structural Optimization, Parallel Execution, Snaphu Optimization |
 | **Step 7** (`ps_calc_scla`) | 29s | **14s** | **2.1x** | L2 Vectorization & Precision, L1 Vectorized IRLS |
 | **Step 7** (`ps_smooth_scla`) | 252s | **47s** | **5.4x** | Topology Generation, Vectorized Graph Traversal, Memory Projection |
