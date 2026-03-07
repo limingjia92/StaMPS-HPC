@@ -27,7 +27,7 @@ Significant engineering focus was placed on eliminating algorithmic bottlenecks 
 | :--- | :--- | :--- | :--- | :--- |
 | **Step 2** (`ps_est_gamma_quick`) | 474s | **327s** | **1.45x** | MEX Integration, Vectorization, I/O Efficiency |
 | **Step 3** (`ps_select`) | 2564s | **116s** | **22.1x** | Loop Elimination, C-MEX Hybrid Kernel |
-| **Step 4** (`ps_weed`) | 1218s | **370s** | **3.3x** | Graph Theory Adjacency, C-MEX Offloading, OpenMP |
+| **Step 4** (`ps_weed`) | 1578s | **370s** | **4.3x** | Graph Theory Adjacency, C-MEX Offloading, OpenMP |
 | **Step 5.5** (`ps_calc_ifg_std`) | 171s | **41s** | **4.2x** | Direct Phase Arithmetic, Fast Wrapping, Memory Reduction |
 | **Step 5.5** (`ps_merge_patches`) | 1470s | **600s** | **2.8x** | Variable-Centric Parfor, Cell Array Buffering |
 | **Step 6** (`ps_unwrap`) | 1068s | **411s** | **2.6x** | Structural Optimization, Parallel Execution, Snaphu Optimization |
