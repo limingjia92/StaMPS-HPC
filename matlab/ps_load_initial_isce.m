@@ -87,7 +87,7 @@ function [] = ps_load_initial_isce
     lambda = load(lambdaname);
     setparm('lambda', lambda, 1);
     
-    if abs(lambda - 0.0554658) < 5e-4
+    if abs(lambda - 0.0554658) < 10e-4
         platform='S1A';
     elseif abs(lambda - 0.0562356) < 5e-4
         platform='ENVISAT';
