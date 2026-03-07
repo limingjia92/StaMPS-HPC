@@ -26,7 +26,8 @@ Significant engineering focus was placed on eliminating algorithmic bottlenecks 
 | Processing Module | Original Time | HPC Time | Speedup | Core Optimization Strategy |
 | :--- | :--- | :--- | :--- | :--- |
 | **Step 2** (`ps_est_gamma_quick`) | 474s | **327s** | **1.45x** | MEX Integration, Vectorization, I/O Efficiency |
-| **Step 3** (`ps_select`) | 2564s | **116s** | **22.1x** | Loop Elimination, Hybrid Kernel |
+| **Step 3** (`ps_select`) | 2564s | **116s** | **22.1x** | Loop Elimination, C-MEX Hybrid Kernel |
+| **Step 4** (`ps_weed`) | 1218s | **370s** | **3.3x** | Graph Theory Adjacency, C-MEX Offloading, OpenMP |
 | **Step 5.5** (`ps_calc_ifg_std`) | 171s | **41s** | **4.2x** | Direct Phase Arithmetic, Fast Wrapping, Memory Reduction |
 | **Step 5.5** (`ps_merge_patches`) | 1470s | **600s** | **2.8x** | Variable-Centric Parfor, Cell Array Buffering |
 | **Step 6** (`ps_unwrap`) | 1068s | **411s** | **2.6x** | Structural Optimization, Parallel Execution, Snaphu Optimization |
@@ -57,9 +58,14 @@ Significant engineering focus was placed on eliminating algorithmic bottlenecks 
 * **Hybrid Kernels**: Offloaded heavy FFT and convolution operations to OpenMP-accelerated C-MEX binaries (`clap_filt_mex`).
 * **Matrix Indexing & I/O**: Replaced slow iterative `squeeze` operations with direct linear indexing. Moved the time-consuming `stamps_save` operation outside the main iteration loop, significantly reducing disk I/O latency while maintaining strict numerical consistency.
 
-### Step 3 & 4: Candidate Selection & Weeding (`ps_select`, `ps_weed`)
+### Step 3: Candidate Selection (`ps_select`)
 * **Batch Processing Strategy**: Replaced massive pixel-wise MATLAB loops with a single, highly optimized MEX call (`clap_filt_patch_mex`), eliminating interpreter overhead. Integrated OpenMP multi-threading for phase filtering.
 * **Topofit Toggle**: Introduced `use_fast_topofit` parameter, offering a choice between ultra-fast MEX topofit and exact-precision MATLAB topofit.
+
+### Step 4: Weeding Adjacent & Noisy Pixels (`ps_weed`)
+* **Graph Theory Adjacency**: Replaced massive nested cell arrays and `while` loops with MATLAB's `graph` and `conncomp` functions for instantaneous connected component clustering.
+* **C-MEX & OpenMP Offloading**: Extracted the most computationally expensive nested loop (involving phase multiplication, wrapping, and `lscov` fitting across millions of Delaunay arcs over time) into a single C-MEX call (`smooth_arcs_mex`). Safely distributed the workload across multi-core CPUs using shared memory.
+* **Real-Domain Phase Wrapping**: Replaced computationally expensive `angle(exp(1j*x))` calls with an ultra-fast arithmetic modulo algorithm (`fmod`) within the C kernel, drastically reducing execution time and entirely eliminating temporary memory allocation overheads.
 
 ### Step 5 & 5.5: Phase Correction, Patch Merging & Noise Estimation
 * **Two-Phase Parallel Merging (`ps_merge_patches`)**: Implemented a "Meta-Scan -> Parallel Stream" architecture. Utilized a Variable-Centric Parfor approach with Cell Array buffering to resolve dynamic slicing issues and eliminate memory fragmentation. Selective I/O only loads necessary variables.

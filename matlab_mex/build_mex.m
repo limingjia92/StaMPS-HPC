@@ -28,6 +28,9 @@ try
     
     disp('-> Compiling clap_filt_patch_mex.c ...');
     eval(['mex ', flags, ' clap_filt_patch_mex.c']);
+
+    disp('-> Compiling smooth_arcs_mex.c ...');
+    eval(['mex ', flags, ' smooth_arcs_mex.c']);
     
     disp('===================================================');
     disp('   Compilation Successful!                         ');

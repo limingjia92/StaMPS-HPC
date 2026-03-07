@@ -55,6 +55,14 @@ Note: The Makefile automatically invokes build_mex.m in batch mode (-batch) and 
     * **Kernel Normalization:** Added specific normalization logic to ensure the convolution output magnitude matches MATLAB's built-in filter exactly.
     * Added explicit **NaN handling** to safeguard against edge-case data corruption.
 
+### 4. `smooth_arcs_mex.c` (Replaces arc smoothing loop in `ps_weed.m`)
+* **Bottleneck Solved:** Massive memory allocation overhead and interpreter lag caused by repeated `lscov` and `angle` calculations across millions of Delaunay arcs over time.
+* **Key Optimization:**
+    * **Loop Fusion & Cache Optimization:** Fused phase multiplication, angle extraction, and least-squares fitting into a single, zero-allocation loop to eliminate memory bandwidth bottlenecks.
+    * **Hardcoded WLS Solver:** Replaced MATLAB's generic `lscov` with a hardcoded analytical Cramer's Rule solver for 2x2 weighted linear systems.
+    * **Arithmetic Phase Wrapping:** Replaced computationally expensive `angle(exp(1j*x))` calls with an ultra-fast arithmetic modulo algorithm (`fmod`).
+    * **OpenMP Parallelization:** Safely distributed the processing of millions of arcs across multi-core CPUs using shared memory, entirely avoiding the severe Out-Of-Memory (OOM) risks associated with MATLAB's `parfor`.
+    
 ---
 
 ## Usage & Configuration
