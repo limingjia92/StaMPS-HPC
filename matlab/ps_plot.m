@@ -757,10 +757,10 @@ else
             end
         end
     end
+    fprintf('Color Range: %g to %g %s\n', phase_lims(1), phase_lims(2), units);
 end
 
 if exist('plot_color_scheme_old','var') == 1, setparm('plot_color_scheme',plot_color_scheme_old); end
-fprintf('Color Range: %g to %g %s\n', phase_lims(1), phase_lims(2), units);
 
 % =======================================================================
 % Time Series & Profile Interactive UI Data Binding
