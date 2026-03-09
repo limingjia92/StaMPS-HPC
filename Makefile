@@ -21,7 +21,7 @@ all: c_core mex_core
 install: mex_core
 	@echo ">>> Building and installing C Core Modules..."
 	@$(MAKE) -C src install
-    @echo ">>> Setting executable permissions for Bash scripts..."
+	@echo ">>> Setting executable permissions for Bash scripts..."
 	@chmod 755 bin/*.sh
 	@echo ">>> StaMPS-HPC installation complete!"
 
