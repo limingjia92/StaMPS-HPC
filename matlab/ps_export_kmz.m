@@ -82,7 +82,7 @@ function ps_export_kmz(filename, lonlat, data, varargin)
     
     %% 3. Spatial interpolation
     disp('Performing spatial interpolation...');
-    F = scatteredInterpolant(lonlat(:,1), lonlat(:,2), data, 'linear', 'nearest');
+    F = scatteredInterpolant(lonlat(:,1), lonlat(:,2), double(data), 'linear', 'nearest');
     Z = F(X, Y);
     
     % Crop invalid areas (e.g., oceans)
