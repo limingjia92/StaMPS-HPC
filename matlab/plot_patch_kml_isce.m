@@ -1,5 +1,32 @@
 function plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_overlap)
 % PLOT_PATCH_KML_ISCE  Generate KML and GMT text to visualize Patches (ISCE)
+%
+%   Usage:
+%       plot_patch_kml_isce(data_dir, rg_patches, az_patches)
+%       plot_patch_kml_isce(data_dir, rg_patches, az_patches, rg_overlap, az_overlap)
+%
+%   Inputs:
+%       data_dir   - Directory containing the ISCE processed data.
+%                    Expected Data Directory Structure must include:
+%                    * Dimension files: 'width.txt' AND 'len.txt'
+%                    * Geometry files: 'lon.raw' AND 'lat.raw'
+%       rg_patches - Number of patches in the range direction.
+%       az_patches - Number of patches in the azimuth direction.
+%       rg_overlap - (Optional) Number of overlapping pixels between adjacent range patches (Default: 400).
+%       az_overlap - (Optional) Number of overlapping pixels between adjacent azimuth patches (Default: 400).
+%
+%   Outputs:
+%       Generates the following files in the current working directory:
+%       - patches_ISCE.kml : KML file for visualization in Google Earth or other GIS software.
+%       - patches_ISCE.txt : Multi-segment polygon text file for GMT plotting.
+%
+%   Example:
+%       % Generate visualization for 2 range patches and 5 azimuth patches with default 400px overlap
+%       plot_patch_kml_isce('/path/to/data_dir', 2, 5);
+%
+%       % Specify custom overlap of 300 pixels in both directions
+%       plot_patch_kml_isce('/path/to/data_dir', 2, 5, 300, 300);
+%
 %   ======================================================================
 %   MODIFICATION HEADER (StaMPS-HPC)
 %   ======================================================================

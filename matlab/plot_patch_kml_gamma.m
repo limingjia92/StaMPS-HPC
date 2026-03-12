@@ -1,5 +1,32 @@
 function plot_patch_kml_gamma(data_dir, rg_patches, az_patches, rg_overlap, az_overlap)
 % PLOT_PATCH_KML_GAMMA  Generate KML and GMT text to visualize Patches (GAMMA)
+%
+%   Usage:
+%       plot_patch_kml_gamma(data_dir, rg_patches, az_patches)
+%       plot_patch_kml_gamma(data_dir, rg_patches, az_patches, rg_overlap, az_overlap)
+%
+%   Inputs:
+%       data_dir   - Directory containing the GAMMA processed data. 
+%                    Expected Data Directory Structure must include:
+%                    * Metadata file: 'rslc/*.par' OR 'SMALL_BASELINES/rslc/*.par' OR 'geo/*.diff_par'
+%                    * Geometry files: 'geo/*.lon' AND 'geo/*.lat'
+%       rg_patches - Number of patches in the range direction.
+%       az_patches - Number of patches in the azimuth direction.
+%       rg_overlap - (Optional) Number of overlapping pixels between adjacent range patches (Default: 400).
+%       az_overlap - (Optional) Number of overlapping pixels between adjacent azimuth patches (Default: 400).
+%
+%   Outputs:
+%       Generates the following files in the current working directory:
+%       - patches_GAMMA.kml : KML file for visualization in Google Earth or other GIS software.
+%       - patches_GAMMA.txt : Multi-segment polygon text file for GMT plotting.
+%
+%   Example:
+%       % Generate visualization for 2 range patches and 5 azimuth patches with default 400px overlap
+%       plot_patch_kml_gamma('/path/to/data_dir', 2, 5);
+%
+%       % Specify custom overlap of 300 pixels in both directions
+%       plot_patch_kml_gamma('/path/to/data_dir', 2, 5, 300, 300);
+%
 %   ======================================================================
 %   MODIFICATION HEADER (StaMPS-HPC)
 %   ======================================================================
