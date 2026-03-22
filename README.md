@@ -92,19 +92,14 @@ This project is licensed under the **GNU General Public License (GPL)**. It is a
 
 ---
 
-## Citation
-
-If you use **StaMPS-HPC** in your research, or find this optimization helpful, please consider citing our related work where this methodology/workflow was applied:
-
-> **Li, M.**, Sun, J., Xue, L., Shen, Z. K., Li, Y., Zhao, B., & Hu, L. (2025). Characterizing aquifer properties and groundwater storage at North China Plain using geodetic and hydrological measurements. *Water Resources Research*, 61(2), e2024WR037425. https://doi.org/10.1029/2024WR037425
-
----
-
 ## Acknowledgement & Contact
 
 * **Optimization & Refactoring:** Mingjia Li
 * **Original Authors:** Andy Hooper et al. (Stanford University, University of Leeds)
 * **Acknowledgements:** Special thanks to **Jianbao Sun** and **Kejie Chen** for their invaluable support, guidance, and contributions to the underlying concepts of this optimization project.
+
+**Citation:** If this project helps your research, please consider citing our work: 
+> **Li, M.**, Sun, J., Xue, L., Shen, Z. K., Li, Y., Zhao, B., & Hu, L. (2025). Characterizing aquifer properties and groundwater storage at North China Plain using geodetic and hydrological measurements. *Water Resources Research*, 61(2), e2024WR037425. https://doi.org/10.1029/2024WR037425
 
 For questions regarding the HPC implementation, parallelization configuration, or bug reports, please open an **Issue** on GitHub.
 
