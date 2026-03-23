@@ -197,7 +197,7 @@ function ps_parms_default()
         parms.unwrap_patch_phase = 'n';     % Use patch phase from Step 3 as prefiltered phase ('n' recommended).
     end
     if ~isfield(parms,'unwrap_hold_good_values')
-        parms.unwrap_hold_good_values = 'n';% SBAS: Hold good pixels from first unwrap using sb_identify_good_pixels.
+        parms.unwrap_hold_good_values = 'n';% SBAS: Hold good pixels from first unwrap.
     end
     if ~isfield(parms,'unwrap_la_error_flag')
         parms.unwrap_la_error_flag = 'y';   % Account for Look Angle error during unwrapping.
