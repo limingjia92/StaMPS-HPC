@@ -49,7 +49,7 @@ The project is modularized into five highly optimized sub-components:
 * `matlab/`: The modernized central MATLAB processing engine, featuring deep algorithmic vectorization, refined mathematical solvers, and an upgraded interactive plotting suite.
 * `matlab_mex/`: High-performance C-MEX modules designed to bypass MATLAB interpreter bottlenecks.
 * `cptfiles/`: A comprehensive library of GMT Color Palette Tables seamlessly parsed by the internal engine to enhance visualization aesthetics.
-
+* `manual/`: Contains the official comprehensive user guide (`StaMPS-HPC_Manual.pdf`) detailing system requirements, end-to-end processing workflows, and advanced visualization techniques.
 ---
 
 ## Quick Start & Installation
