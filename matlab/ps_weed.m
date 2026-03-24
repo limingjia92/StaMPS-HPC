@@ -74,6 +74,19 @@ end
 
 % Load previous version information
 load psver
+
+% Detect if the user is re-running ps_weed without manually resetting psver.
+check_select = ['select', num2str(psver), '.mat'];
+if ~exist(check_select, 'file')
+    if exist(['select', num2str(psver-1), '.mat'], 'file')
+        logit(sprintf('Auto-detecting re-run: Reverting psver from %d to %d.', psver, psver-1));
+        psver = psver - 1;
+    else
+        % Failsafe default
+        psver = 1; 
+    end
+end
+
 psname=['ps',num2str(psver)];
 pmname=['pm',num2str(psver)];
 phname=['ph',num2str(psver)];

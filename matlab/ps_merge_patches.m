@@ -391,6 +391,8 @@ for t = 1:size(Tasks, 1)
 
             % Process Logic
             raw_patch = loaded.ph_patch(info.ix, :);
+            n_cols_pm = size(raw_patch, 2);
+
             if isfield(loaded,'ph_res'), raw_res=loaded.ph_res(info.ix,:); else, raw_res=raw_patch*0; end
             if isfield(loaded,'K_ps'), raw_K=loaded.K_ps(info.ix,:); else, raw_K=zeros(sum(info.ix),1); end
             if isfield(loaded,'C_ps'), raw_C=loaded.C_ps(info.ix,:); else, raw_C=zeros(sum(info.ix),1); end
@@ -402,14 +404,14 @@ for t = 1:size(Tasks, 1)
                 OUT_C_PS{k}     = raw_C;
                 OUT_COH_PS{k}   = loaded.coh_ps(info.ix, :);
             else
-                res_patch = zeros(info.n_ps_g, n_cols_ifg, 'single');
-                res_res   = zeros(info.n_ps_g, n_cols_ifg, 'single');
+                res_patch = zeros(info.n_ps_g, n_cols_pm, 'single');
+                res_res   = zeros(info.n_ps_g, n_cols_pm, 'single');
                 res_K     = zeros(info.n_ps_g, 1, 'single');
                 res_C     = zeros(info.n_ps_g, 1, 'single');
                 res_coh   = zeros(info.n_ps_g, 1, 'single');
                 
                 for i=1:info.n_ps_g
-                    w_snr = repmat(info.ps_snr(info.f_ix(i):info.l_ix(i)), 1, n_cols_ifg);
+                    w_snr = repmat(info.ps_snr(info.f_ix(i):info.l_ix(i)), 1, n_cols_pm);
                     res_patch(i,:) = sum(raw_patch(info.f_ix(i):info.l_ix(i),:) .* w_snr, 1);
                     res_res(i,:)   = sum(raw_res(info.f_ix(i):info.l_ix(i),:)   .* w_snr, 1);
                     
@@ -419,7 +421,7 @@ for t = 1:size(Tasks, 1)
                     w_var = info.ps_weight(info.f_ix(i):info.l_ix(i));
                     sum_w_var = sum(w_var);
                     res_K(i) = sum(raw_K(info.f_ix(i):info.l_ix(i)) .* w_var) ./ sum_w_var;
-                    res_C(i) = sum(raw_C(info.f_ix(i):info.l_ix(i)) .* w_var) ./ sum_w_var;
+                    res_C(i) = sum(raw_C(info.f_ix(i):info.l_ix(i)) .* w_var) ./ sum_w_var;                
                 end
                 OUT_PH_PATCH{k} = res_patch;
                 OUT_PH_RES{k}   = res_res;
@@ -610,9 +612,9 @@ for t = 1:size(Tasks, 1)
     elseif fileExists || strcmp(varType, 'inc') 
         
         % Identify field name
-        if strcmp(varType, 'ph'), f='ph'; n_cols=n_cols_ifg;
-        elseif strcmp(varType, 'phuw'), f='ph_uw'; n_cols=n_cols_ifg;
-        elseif strcmp(varType, 'scn'), f='ph_scn_slave'; n_cols=n_cols_ifg;
+        if strcmp(varType, 'ph'), f='ph'; 
+        elseif strcmp(varType, 'phuw'), f='ph_uw'; 
+        elseif strcmp(varType, 'scn'), f='ph_scn_slave'; 
         elseif strcmp(varType, 'la') || strcmp(varType, 'inc') || strcmp(varType, 'head') || strcmp(varType, 'hgt'), f=varType; n_cols=1;
         end
         
@@ -635,16 +637,18 @@ for t = 1:size(Tasks, 1)
             loaded = load([PatchNames{k}, filesep, saveName, '.mat']);
             raw_d = loaded.(f)(info.ix, :);
             
+            n_cols_current = size(raw_d, 2); 
+            
             if grid_size == 0
                 OUT_VAR{k} = raw_d;
             else
-                res_d = zeros(info.n_ps_g, n_cols, 'single');
+                res_d = zeros(info.n_ps_g, n_cols_current, 'single');
                 for i=1:info.n_ps_g
                      if strcmp(varType, 'ph')
-                         w = repmat(info.ps_snr(info.f_ix(i):info.l_ix(i)), 1, n_cols);
+                         w = repmat(info.ps_snr(info.f_ix(i):info.l_ix(i)), 1, n_cols_current);
                          res_d(i,:) = sum(raw_d(info.f_ix(i):info.l_ix(i),:) .* w, 1);
                      else
-                         w = repmat(info.ps_weight(info.f_ix(i):info.l_ix(i)), 1, n_cols);
+                         w = repmat(info.ps_weight(info.f_ix(i):info.l_ix(i)), 1, n_cols_current);
                          res_d(i,:) = sum(raw_d(info.f_ix(i):info.l_ix(i),:) .* w, 1) ./ sum(w(:,1));
                      end
                 end
