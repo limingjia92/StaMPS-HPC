@@ -7,7 +7,9 @@ All notable changes to the StaMPS-HPC project will be documented in this file.
 ### Added
 - **`matlab/ps_weed.m`**: Introduced an Auto-Fallback mechanism for `psver` management (2026-03-24).  
     Prevents "file not found" crashes when re-running the script with modified parameters 
-
+- **`matlab/plot_baselines.m`**: Introduced a unified and modernized spatiotemporal baseline network plotting tool (2026-03-25).  
+  - Combines legacy PS and SBAS plotting scripts, and automated high-resolution PNG exports
+  
 ### Changed
 - **`matlab/uw_stat_costs.m`**: Removed the experimental Pre-Unwrapping Filtering feature (2026-03-25).  
     Ensures 100% mathematical consistency with original StaMPS cost calculations.
