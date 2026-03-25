@@ -331,6 +331,56 @@ for SEC_DATE in "${SLCS[@]}"; do
             LOOKS_IFG="$IFG_DIR/quicklook.int"
             looks.py -i "$SAVE_IFG" -o "$LOOKS_IFG" -r "$RG_LOOKS" -a "$AZ_LOOKS" >> processing_SM.log
             fixImageXml.py -f -i "$LOOKS_IFG"
+            
+            # -----------------------------------------------------------------
+            # NEW: Generate High-Res PNG Previews automatically
+            # -----------------------------------------------------------------
+            PREVIEW_DIR="Previews_PNG"
+            mkdir -p "$PREVIEW_DIR"
+            OUT_AMP="$PREVIEW_DIR/IFG_AMP_${SEC_DATE}.png"
+            OUT_PHA="$PREVIEW_DIR/IFG_PHA_${SEC_DATE}.png"
+            
+            echo "    Generating PNG previews for $SEC_DATE..."
+            
+            # Use inline Python with ISCE's internal GDAL/Matplotlib environment
+            python3 -c "
+import sys, os
+import numpy as np
+import matplotlib
+matplotlib.use('Agg') # Headless backend
+import matplotlib.pyplot as plt
+from osgeo import gdal
+
+# Read the multi-looked IFG (very fast due to small size)
+ds = gdal.Open('$LOOKS_IFG')
+if ds is None:
+    print('    Warning: Could not open $LOOKS_IFG for PNG generation.')
+    sys.exit(0)
+
+# Read Complex Data
+cplx_data = ds.GetRasterBand(1).ReadAsArray()
+amp = np.abs(cplx_data)
+phase = np.angle(cplx_data)
+
+# 1. Plot Amplitude
+plt.figure(figsize=(10, 8))
+amp_max = np.percentile(amp[amp > 0], 95) if np.any(amp > 0) else 1
+plt.imshow(amp, cmap='gray', vmin=0, vmax=amp_max)
+plt.title('${SEC_DATE} - Amplitude (Multi-looked)', fontsize=14, fontweight='bold')
+plt.axis('off')
+plt.tight_layout()
+plt.savefig('$OUT_AMP', dpi=150, bbox_inches='tight', pad_inches=0.1)
+plt.close()
+
+# 2. Plot Phase
+plt.figure(figsize=(10, 8))
+plt.imshow(phase, cmap='jet', vmin=-np.pi, vmax=np.pi)
+plt.title('${SEC_DATE} - Phase (Multi-looked)', fontsize=14, fontweight='bold')
+plt.axis('off')
+plt.tight_layout()
+plt.savefig('$OUT_PHA', dpi=150, bbox_inches='tight', pad_inches=0.1)
+plt.close()
+"
         fi
     fi
     
