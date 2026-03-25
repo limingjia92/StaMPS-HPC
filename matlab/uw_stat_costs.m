@@ -9,12 +9,10 @@ function [] = uw_stat_costs(options)
 %   License:       GPL v3.0 (Inherited from StaMPS)
 %
 %   HPC Optimization:
-%   1. Pre-Unwrapping Filtering: Implements a weighted Goldstein-Werner filter to reduce noise
-%      before unwrapping, preserving magnitude as coherence weights.
-%   2. Parallel Execution: Uses parfor to process interferograms concurrently (1 IFG per Worker).
-%   3. Snaphu Optimization: Leverages 'snaphu -S' (Tile Mode) with 'NPROC=1' to maximize 
+%   1. Parallel Execution: Uses parfor to process interferograms concurrently (1 IFG per Worker).
+%   2. Snaphu Optimization: Leverages 'snaphu -S' (Tile Mode) with 'NPROC=1' to maximize 
 %      single-threaded efficiency within the parallel framework.
-%   4. Logic Optimization: Vectorized cost calculation.
+%   3. Logic Optimization: Vectorized cost calculation.
 %
 %   ======================================================================
 %   ORIGINAL HEADER (StaMPS)
@@ -153,14 +151,6 @@ rowcost_tmpl(:,4:4:end)= int16(stats_ix)*(-1-maxshort)+1;
 stats_ix=~isnan(colix); 
 colcost_tmpl(:,4:4:end)= int16(stats_ix)*(-1-maxshort)+1;
 
-% --- Filter Parameters Setup ---
-% Use setparm to configure aggressive filtering for specific noisy IFGs.
-uwnoisey1 = getparm('uwnoisey1', 1); 
-if isempty(uwnoisey1), uwnoisey1=[]; end
-
-uwnoisey2 = getparm('uwnoisey2', 1); 
-if isempty(uwnoisey2), uwnoisey2=[]; end
-
 % --- Pre-allocate Sliced Output ---
 ph_uw_slice = zeros(uw.n_ps, length(subset_ifg_index), 'single');
 msd_slice = zeros(length(subset_ifg_index), 1);
@@ -238,30 +228,17 @@ parfor idx = 1:length(subset_ifg_index)
     fwrite(fid_cost, colcost', 'int16');
     fclose(fid_cost);
     
-    % 3. Filtering & Data Prep
+    % 3. Data Prep (Direct Write, No Filtering)
     ifgw = reshape(uw_ph_ptr(Z,i1), nrow, ncol);
     
-    % Adaptive filter settings
-    alpha = 0.6; % Default alpha
-    nfft = 16;   % Default FFT size
-    
-    if ismember(i1, uwnoisey1)
-        alpha = 1.0; nfft = 32;
-    elseif ismember(i1, uwnoisey2)
-        alpha = 1.5; nfft = 64;
-    end
-    
-    % Apply Weighted Goldstein-Werner Filter
-    % wfrac_min set to 0.7 to handle edges
-    ifgw_filt = goldstein_werner_filter_weighted(ifgw, nfft, alpha, 0.7);
-    
-    % CRITICAL: Transpose for Row-Major (C-style) compatibility
-    ifgw_filt_t = ifgw_filt.'; 
+    % CRITICAL: Transpose for Row-Major (C-style) compatibility required by Snaphu
+    ifgw_t = ifgw.'; 
 
-    % Interleave Real and Imaginary parts
-    val_to_write = zeros(2, numel(ifgw_filt_t), 'single');
-    val_to_write(1,:) = real(ifgw_filt_t(:));
-    val_to_write(2,:) = imag(ifgw_filt_t(:));
+    % Interleave Real and Imaginary parts 
+    % (This replaces the original slow 'writecpx' function with fast, parallel-safe inline code)
+    val_to_write = zeros(2, numel(ifgw_t), 'single');
+    val_to_write(1,:) = real(ifgw_t(:));
+    val_to_write(2,:) = imag(ifgw_t(:));
     
     % Write input file (Force Little Endian for consistency)
     fid_in_handle = fopen(f_in, 'w');
@@ -342,98 +319,4 @@ end
 
 save('uw_phaseuw','ph_uw','msd')
 fprintf('Unwrapping finished.\n');
-end
-
-% =========================================================================
-% SUBFUNCTION: Weighted Goldstein-Werner Filter
-% =========================================================================
-function im_filt = goldstein_werner_filter_weighted(im, nfft, alpha, wfrac_min)
-%GOLDSTEIN_WERNER_FILTER_WEIGHTED Optimized Goldstein-Werner phase filter
-%
-%
-%   im_filt = goldstein_werner_filter_weighted(im, nfft, alpha, wfrac_min)
-%
-%   INPUTS:
-%       im        : Complex interferogram (2D double/single)
-%       nfft      : FFT window size (e.g., 32, 64)
-%       alpha     : Filter exponent (0.5 = standard, >1.0 = strong)
-%       wfrac_min : Minimum fraction of valid pixels in window (0.0-1.0)
-%
-%   OUTPUT:
-%       im_filt   : Filtered complex image.
-%                   NOTE: Magnitude is NOT normalized; it represents
-%                   local phase quality/coherence, used as weights by Snaphu.
-%
-%   ALGORITHM:
-%       Implements the Goldstein-Werner spectral filter with a high-overlap
-%       strategy (step = nfft/8) to reduce tiling artifacts and preserve
-%       coherence details.
-
-
-    if nargin < 2 || isempty(nfft), nfft = 16; end % GAMMA default/usage implies 16 or 32
-    if nargin < 3 || isempty(alpha), alpha = 0.6; end % GAMMA usage was 0.6
-    if nargin < 4, wfrac_min = 0.7; end
-    
-    [rows, cols] = size(im);
-    
-    % ---  Goldstein Filtering  ---
-    step = max(1, floor(nfft / 8)); 
-    H_smooth = ones(5) / 25; 
-    win_1d = triang(nfft);
-    window = win_1d * win_1d';
-    
-    pad_r = ceil(rows/step)*step + nfft;
-    pad_c = ceil(cols/step)*step + nfft;
-    im_pad = zeros(pad_r, pad_c, 'like', im);
-    im_pad(1:rows, 1:cols) = im;
-    
-    acc_im = zeros(pad_r, pad_c, 'like', im);
-    acc_w = zeros(pad_r, pad_c, 'single');
-    
-    min_pixels = floor(wfrac_min * nfft * nfft);
-
-    for r = 1:step:(rows)
-        for c = 1:step:(cols)
-            r_end = r + nfft - 1;
-            c_end = c + nfft - 1;
-            if r_end > pad_r || c_end > pad_c, continue; end
-            
-            patch = im_pad(r:r_end, c:c_end);
-            if nnz(patch) < min_pixels, continue; end
-            
-            Z = fft2(patch);
-            MagZ = abs(Z);
-            S_smooth = conv2(MagZ, H_smooth, 'same');
-            Z_filt = Z .* (S_smooth .^ alpha);
-            patch_filt = ifft2(Z_filt);
-            
-            acc_im(r:r_end, c:c_end) = acc_im(r:r_end, c:c_end) + patch_filt .* window;
-            acc_w(r:r_end, c:c_end) = acc_w(r:r_end, c:c_end) + window;
-        end
-    end
-    
-    mask = acc_w > 1e-6;
-    acc_im(mask) = acc_im(mask) ./ acc_w(mask);
-    raw_filt = acc_im(1:rows, 1:cols);
-    raw_filt(isnan(raw_filt)) = 0;
-
-    % - Magnitude Replacement  ---
-    % Extract Phase
-    phase_only = exp(1i * angle(raw_filt));
-    
-    % Calculate Coherence using a 7x7 window 
-    cc_win = 7;
-    kernel = ones(cc_win) / (cc_win^2);
-    
-    % Coherence = |mean(exp(j*phi))
-    
-    coh_est = abs(imfilter(phase_only, kernel, 'symmetric'));
-    
-    % Clamp Coherence to 0.001 - 1.0 range for Snaphu stability
-    coh_est(coh_est < 0.001) = 0.001;
-    coh_est(coh_est > 1.0) = 1.0;
-    
-    % Reconstruct Output: Phase from Filter, Magnitude from Coherence
-    im_filt = coh_est .* phase_only;
-
 end
