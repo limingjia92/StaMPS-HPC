@@ -15,6 +15,6 @@ All notable changes to the StaMPS-HPC project will be documented in this file.
 ### Fixed
 - **`matlab_mex/Makefile`**: Added auto-detection for the `-batch` execution flag (2026-03-23).  
     Restores seamless MEX compilation compatibility for legacy MATLAB versions (R2018b and earlier) . 
-- **`matlab/ps_merge_patches.m`**: Replaced hardcoded `n_cols_ifg` with dynamic column size acquisition for complex variables (2026-03-24). 
+- **`matlab/ps_merge_patches.m`**: Replaced hardcoded `n_cols_ifg` with dynamic column size acquisition for complex variables (2026-03-24).  
     Resolves "Matrix dimensions must agree" errors during patch resampling for standard PS datasets. 
     
