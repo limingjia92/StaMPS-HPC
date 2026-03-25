@@ -9,7 +9,7 @@ All notable changes to the StaMPS-HPC project will be documented in this file.
     Prevents "file not found" crashes when re-running the script with modified parameters 
 
 ### Changed
-- **`matlab/uw_stat_costs.m`**: Removed the experimental Pre-Unwrapping Filtering feature (2026-03-25). 
+- **`matlab/uw_stat_costs.m`**: Removed the experimental Pre-Unwrapping Filtering feature (2026-03-25).  
     Ensures 100% mathematical consistency with original StaMPS cost calculations.
 
 ### Fixed
