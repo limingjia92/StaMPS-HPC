@@ -15,6 +15,8 @@ function [h_fig, phase_lims, h_axes_all] = ps_plot(value_type, varargin)
 %                     'vs'        - Velocity standard deviation
 %                     'w' / 'p'   - Wrapped phase / Filtered wrapped phase
 %                     'u' / 'usb' - Unwrapped phase (SM / SBAS)
+%                     'c'         - Cumulative deformation time-series (mm)
+%                     'csb'       - Relative interferogram deformation for SBAS pairs (mm)
 %                     'hgt'       - Topographic elevation (m)
 %                     'd' / 'dsb' - Spatially correlated DEM error
 %                     'm'         - Master atmospheric/orbit error
@@ -61,6 +63,10 @@ function [h_fig, phase_lims, h_axes_all] = ps_plot(value_type, varargin)
 %      'appdata' for encapsulated, conflict-free Time-Series UI interaction.
 %   7. UI Overhaul & Profiling: Integrated an interactive dual-axis swath profiling 
 %      tool and expanded the bottom control panel to manage dynamic inputs (Radius & Bins).
+%   8. Data Export Overhaul: Dynamically assigns variable names and saves 'units' during 
+%      background data extraction (plot_flag = -1), deprecating the ambiguous 'ph_disp' output.
+%   9. Cumulative Deformation ('c'/'csb'): Added direct extraction of deformation in 
+%      millimeters (mm), safely handling phase-to-metric conversions post-correction.
 %
 %   ======================================================================
 %   ORIGINAL HEADER (StaMPS)
@@ -158,6 +164,7 @@ if strcmpi(small_baseline_flag, 'y')
         ifg_list = unwrap_ifg_index_sb;
     elseif ischar(value_type) && length(value_type)>2 && ...
            (startsWith(value_type, 'usb', 'IgnoreCase', true) || ...
+            startsWith(value_type, 'csb', 'IgnoreCase', true) || ... 
             startsWith(value_type, 'rsb', 'IgnoreCase', true) || ...
             startsWith(value_type, 'asb', 'IgnoreCase', true) || ...
             startsWith(value_type, 'isb', 'IgnoreCase', true)) && isempty(ifg_list)
@@ -167,7 +174,7 @@ else
     unwrap_ifg_index = setdiff([1:ps.n_ifg], drop_ifg_index);
 end
 
-if (value_type(1)=='u' || value_type(1)=='s' || value_type(1)=='a' || value_type(1)=='i' || value_type(1)=='w') && isempty(ifg_list)
+if (value_type(1)=='u' || value_type(1)=='c' || value_type(1)=='s' || value_type(1)=='a' || value_type(1)=='i' || value_type(1)=='w') && isempty(ifg_list)
     ifg_list = unwrap_ifg_index;
 end
 if ~ischar(value_type) && size(value_type,2) < length(ifg_list)
@@ -206,7 +213,7 @@ end
 
 value_type = lower(value_type); % convert to lowecase for unified logic
 
-if (startsWith(value_type, 'u') || startsWith(value_type, 'a')) && ~(startsWith(value_type, 'usb') || startsWith(value_type, 'asb'))
+if (startsWith(value_type, 'u') || startsWith(value_type, 'c') || startsWith(value_type, 'a')) && ~(startsWith(value_type, 'usb') || startsWith(value_type, 'asb'))
     forced_sm_flag = 1;       
 end
 
@@ -287,10 +294,10 @@ if ischar(value_type)
             pm = load(pmname); ph_base = pm.ph_patch ./ abs(pm.ph_patch);
             if ps.n_ifg~=size(ph_base,2), ph_base = [ph_base(:,1:ps.master_ix-1), zeros(ps.n_ps,1), ph_base(:,ps.master_ix:end)]; end
             clear pm;
-        case 'u'  % Unwrapped phase (SM)
+        case {'u', 'c'}  % Unwrapped phase (SM) or Cumulative Deformation (mm)
             uw = load(phuwname); ph_base = uw.ph_uw; clear uw; 
             if is_envisat, ph_base = ph_base - ph_unw_eni_osci; end
-        case 'usb'  % Unwrapped phase (SBAS)
+        case {'usb', 'csb'}  % Unwrapped phase (SBAS) or Pair Deformation (mm)
             uw = load(phuwsbname); ph_base = uw.ph_uw; clear uw;
             if is_envisat, ph_base = ph_base - ph_unw_eni_osci; end
         case 'rsb'  % Residual unwrapped phase (SBAS)
@@ -363,7 +370,7 @@ if ischar(value_type)
         if ~isempty(corrs), fig_name_dynamic = [fig_name_dynamic '-']; end
         % check whether load "_sb" files
         use_sb_file = (strcmpi(small_baseline_flag, 'y') && forced_sm_flag == 0) || ...
-                      strcmpi(base_type, 'usb') || strcmpi(base_type, 'vsb') || ...
+                      strcmpi(base_type, 'usb') || strcmpi(base_type, 'csb') || strcmpi(base_type, 'vsb') || ...
                       strcmpi(base_type, 'rsb') || strcmpi(base_type, 'asb') || ...
                       strcmpi(base_type, 'isb') || strcmpi(base_type, 'tsb') || ...
                       strcmpi(base_type, 'dsb');
@@ -464,6 +471,13 @@ if ischar(value_type)
             
             if ~is_wrapped && ~contains(value_type, 'sb'), ph_all(:, master_ix) = 0; end
             if strcmpi(base_type,'u') || strcmpi(base_type,'usb'), units = 'rad'; textsize = 0; end
+
+            if strcmpi(base_type,'c') || strcmpi(base_type,'csb')
+                lambda = getparm('lambda');
+                ph_all = -ph_all * lambda * 1000 / (4 * pi);
+                units = 'mm'; 
+                textsize = 0; 
+            end
         end
     end
 
@@ -548,11 +562,13 @@ if ischar(value_type)
             end
         end
         
+        velocity = ph_all;         % mean velcotiy result
+        lscov_coeffs = m;          % coeffs matrix from lscov
         try 
-            save('mean_v.mat', 'm'); 
+            save('mean_v.mat', 'velocity', 'lscov_coeffs'); 
         catch ME
             fallback_path = '~/mean_v.mat';
-            save(fallback_path, 'm');
+            save(fallback_path, 'velocity', 'lscov_coeffs');
             
             warning('StaMPS_HPC:WriteAccessDenied', ...
                     'Failed to save in current directory (%s). Velocities saved to fallback path: %s', ...
@@ -697,11 +713,34 @@ end
 % --- Export and Foreground GUI Rendering ---
 if plot_flag == -1 % for data file output
     h_fig = []; phase_lims = []; h_axes_all = []; savename = ['ps_plot_', value_type];
+    
+    % Generate physically meaningful variable names for export
+    switch base_type
+        case {'v', 'vsb', 'vdrop'},  export_var_name = 'disp_velocity';
+        case {'u', 'usb', 'rsb'},    export_var_name = 'disp_unwrapped_phase';
+        case 'c',                    export_var_name = 'disp_cumulative';       
+        case 'csb',                  export_var_name = 'disp_relative_pairs';  
+        case {'w', 'p', 'wa', 'wf'}, export_var_name = 'disp_wrapped_phase';
+        case 'hgt',                  export_var_name = 'disp_topo';
+        case {'d', 'dsb'},           export_var_name = 'disp_dem_error';
+        case {'a', 'asb'},           export_var_name = 'disp_aps';
+        case {'i', 'isb'},           export_var_name = 'disp_iono';
+        case {'t', 'tsb'},           export_var_name = 'disp_tide';
+        case 'vs',                   export_var_name = 'disp_velocity_std';
+        otherwise,                   export_var_name = ['disp_', strrep(value_type, '-', '_')];
+    end
+    
+    % Dynamically assign the core matrix
+    eval([export_var_name, ' = ph_disp;']);
+    
+    % Save variables natively, replacing legacy stamps_save
     try 
-        stamps_save(savename, ph_disp, ifg_list); 
+        save([savename, '.mat'], export_var_name, 'units', 'ifg_list'); 
+        fprintf('Data exported successfully to %s.mat\n', savename);
+        fprintf('Variables saved: %s, units, ifg_list\n', export_var_name);
     catch
-        stamps_save(['~/',savename], ph_disp, ifg_list); 
-        fprintf('Warning: Read access only, values in home directory instead\n'); 
+        save(['~/', savename, '.mat'], export_var_name, 'units', 'ifg_list'); 
+        fprintf('Warning: Read access only, exported to home directory: ~/%s.mat\n', savename); 
     end
 else
     h_fig = figure; set(gcf,'renderer','zbuffer','name',fig_name);
