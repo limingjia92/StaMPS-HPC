@@ -12,7 +12,7 @@ Through a rigorous, ground-up refactoring effort across C/C++, MATLAB, and Bash 
 ## Key Features & Innovations
 
 * **Hybrid Parallel Computing**: Integrated **OpenMP multi-threading** across C/C++ binaries and MATLAB C-MEX modules, offloading computationally heavy tasks (e.g., FFTs, spatial convolutions) directly to compiled C kernels.
-* **Extreme I/O & Memory Control**: Replaced legacy line-by-line file reading with **Block-I/O** strategies to minimize disk latency. Solved MATLAB memory thrashing during massive patch merging via a novel **"Variable-Centric"** `parfor` architecture.
+* **Extreme I/O & Memory Control**: Replaced legacy line-by-line file reading with **Block-I/O** strategies to minimize disk latency. Eradicated Out-Of-Memory (OOM) failures during massive patch merging (e.g., 30M+ points) via a novel **Streamed Pre-allocation & Global Mapping** architecture, locking peak memory usage to the theoretical minimum.
 * **Algorithmic Refactoring**: Streamlined the MATLAB engine from 120+ to 59 core scripts. Eradicated slow O(N) loops in favor of **native vectorization** (`accumarray`, `discretize`) and refactored suffocating complex exponential arithmetic into the **Real Number Domain**.
 * **Modernized Ecosystem & UX**: Enabled **multi-core concurrent patch extraction** for **ISCE2** and **GAMMA**. Overhauled the visualization engine with 30+ standard GMT Colormaps (`.cpt`) and introduced new interactive utilities (`ps_export_kmz`, `profile_plot`).
 ---
@@ -33,7 +33,7 @@ Significant engineering focus was placed on eliminating algorithmic bottlenecks 
 | **Step 2 (`ps_est_gamma_quick`)** | 474s | **327s** | **1.45x** | MEX Integration, Vectorization, I/O Efficiency |
 | **Step 3 (`ps_select`)** | 2564s | **116s** | **22.1x** | Loop Elimination, C-MEX Hybrid Kernel |
 | **Step 4 (`ps_weed`)** | 1578s | **370s** | **4.3x** | Graph Theory Adjacency, C-MEX Offloading, OpenMP |
-| **Step 5.5 (`ps_merge_patches`)**| 1470s | **600s** | **2.8x** | Variable-Centric Parfor, Cell Buffering |
+| **Step 5.5 (`ps_merge_patches`)**| OOM Crash | **Stable** | **Memory Bound** | Streamed Pre-allocation, Global Inverse Mapping, Chunked Masking |
 | **Step 6 (`ps_unwrap`)** | 1068s | **411s** | **2.6x** | Parallel Execution, Snaphu Optimization |
 | **Step 7 (`ps_smooth_scla`)** | 252s | **47s** | **5.4x** | Topology Generation, Vectorized Graph Traversal, Memory Projection |
 | **Step 8 (`ps_scn_filt_krig`)** | 3149s | **408s** | **7.7x** | Variogram Fitting, Spatial Kriging KD-Tree |
