@@ -20,7 +20,11 @@ All notable changes to the StaMPS-HPC project will be documented in this file.
 ### Changed
 - **`matlab/uw_stat_costs.m`**: Removed the experimental Pre-Unwrapping Filtering feature (2026-03-25).  
   - **Purpose**: Ensures 100% mathematical consistency with original StaMPS cost calculations.
-
+- **`matlab/ps_merge_patches.m`**: Completely refactored using a "Streamed Pre-allocation & Global Mapping" architecture (2026-04-02).
+  - **Purpose**: Eliminates `parfor` and `vertcat` operations to guarantee 100% OOM prevention on massive datasets (e.g., >30M points), locking peak memory to the theoretical minimum.
+- **`matlab/ps_calc_ifg_std.m`**: Redesigned with a "Row-Block Streaming" (Dimensional Inversion) architecture (2026-04-02).
+  - **Purpose**: Resolves severe HDF5 "I/O Thrashing" by sequentially reading data row-by-row. Strictly caps peak RAM under 10GB while maximizing multi-threaded CPU vectorization via implicit expansion.
+  
 ### Fixed
 - **`matlab_mex/Makefile`**: Added auto-detection for the `-batch` execution flag (2026-03-23).  
   - **Purpose**: Restores seamless MEX compilation compatibility for legacy MATLAB versions (R2018b and earlier) . 
