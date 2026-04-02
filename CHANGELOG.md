@@ -16,7 +16,11 @@ All notable changes to the StaMPS-HPC project will be documented in this file.
     1) Adding 'c'/'csb' flags for direct cumulative deformation extraction in millimeters (mm).
     2) Dynamically generating physically variable names (e.g., `disp_velocity`) and saving `units` for background exports (`plot_flag = -1`).
     3) Resolving the ambiguous `mean_v.mat` output by explicitly saving `velocity` and `lscov_coeffs` instead of raw mathematical variables.
-    
+- **`matlab/ps_load_initial_isce.m` & `matlab/sb_load_initial_isce.m`**: Introduced automatic calculation and export of Look Angle (`la1.mat`) derived from the incidence angle and satellite orbit altitude (2026-04-02).
+  - **Purpose**: Bridges the data gap between ISCE2 outputs and downstream atmospheric correction tools (like TRAIN) that strictly require Look Angle geometry rather than Incidence Angle.
+- **`bin/make_isce_stack_ps.sh`, `bin/make_isce_stack_sbas.sh`, `bin/prep_stamps_isce.sh`, `matlab/ps_parms_initial.m`, & `matlab/sb_parms_initial.m`**: Implemented an end-to-end pipeline for the automated extraction, propagation, and saving of the `UTC_sat` variables (2026-04-02).
+  - **Purpose**: Eliminates manual metadata lookups by automatically passing the satellite overpass time from the raw ISCE files directly into the StaMPS `parms.mat` structure, seamlessly preparing the dataset for time-dependent atmospheric correction models (e.g., ERA5 or GACOS).
+  
 ### Changed
 - **`matlab/uw_stat_costs.m`**: Removed the experimental Pre-Unwrapping Filtering feature (2026-03-25).  
   - **Purpose**: Ensures 100% mathematical consistency with original StaMPS cost calculations.

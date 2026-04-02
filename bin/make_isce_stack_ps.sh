@@ -173,6 +173,15 @@ for GFILE in $GEOM_FILES; do
 done
 cd ../.. # Back to INSAR_DIR
 
+# --- 2.1 NEW: Copy UTC Satellite Time (if exists) ---
+UTC_FILE="$GEOM_PATH/utc_satellite.dat"
+if [ -f "$UTC_FILE" ]; then
+    echo "  Copying UTC time file: utc_satellite.dat"
+    cp "$UTC_FILE" "$WORK_DIR/$INSAR_DIR/utc_time.txt"
+else
+    echo "  Warning: $UTC_FILE not found."
+fi
+
 # --- Step 3: Integrated Logic (isce2stamps + isce_los2stamps_ENU) ---
 echo "-----------------------------------------------------------------"
 echo "Step 3: Extracting Geometry & ENU Coefficients"

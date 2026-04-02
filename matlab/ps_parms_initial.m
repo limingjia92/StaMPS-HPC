@@ -29,7 +29,14 @@ function ps_parms_initial()
         fprintf('Info: processor.txt not found. Defaulting to ISCE.\n');
     end
 
-    % 3. Save to Disk
+    % 3. Extract UTC Time (if exist)
+    utc_file = 'utc_time.txt';
+    if exist(utc_file, 'file')
+        raw_utc = fileread(utc_file);
+        parms.UTC_sat = strtrim(raw_utc); 
+    end
+
+    % 4. Save to Disk
     try
         save(parmfile, '-struct', 'parms');
     catch ME

@@ -14,7 +14,7 @@ function [] = ps_load_initial_isce
 %   1. Dependency Consolidation: Merged auxiliary functions to reduce file handle overhead.
 %   2. Vectorized I/O: Replaced iterative loops with matrix `fread` and fast Regex parsing.
 %   3. Algorithmic Efficiency: Substituted `griddata` with `interp2` for regular grid interpolation.
-%   4. Add matfile head1.mat for save heading angle.
+%   4. Add matfile head1.mat for save heading angle and la1.mat for save look angle.
 %
 %   ======================================================================
 %   ORIGINAL HEADER (StaMPS)
@@ -241,11 +241,38 @@ function [] = ps_load_initial_isce
     if exist('grid_data', 'var')
         idx_sub = sub2ind(size(grid_data), ij(:,2) + 1, ij(:,3) + 1);
         inc = grid_data(idx_sub);
-        inc = inc ./180 * pi; % convert from degree to radius
+        inc = inc ./ 180 * pi; % Convert from degrees to radians
         stamps_save(target_save_name, inc);
-        mean_incidence = mean(inc); % append mean_incidence value
+        mean_incidence = mean(inc); % Append mean_incidence value
         savename = ['ps', num2str(psver)];
         stamps_save(savename, mean_incidence);
+
+        % --- StaMPS-HPC: Fast Look Angle Derivation ---
+        % Calculate Look Angle (la) from Incidence Angle (inc) using spherical geometry.
+        % Law of sines: sin(la) = (Re / (Re + H)) * sin(inc)
+        Re = 6371000; % Approximate Earth radius in meters
+        
+        % Assign satellite altitude (H) based on recognized platform
+        if strcmp(platform, 'S1A')
+            H = 693000;      % Sentinel-1 altitude ~693 km
+        elseif strcmp(platform, 'ENVISAT')
+            H = 790000;      % Envisat altitude ~790 km
+        elseif strcmp(platform, 'ALOS')
+            H = 691000;      % ALOS altitude ~691 km
+        elseif strcmp(platform, 'TERRASAR')
+            H = 514000;      % TerraSAR-X altitude ~514 km
+        else
+            H = 607000;      % Fallback altitude (e.g., tailored for Lutan-1 ~607 km)
+        end
+        
+        se = Re + H;         % Distance from satellite to Earth's center
+        
+        % Vectorized computation of Look Angle
+        la = asin((Re / se) .* sin(inc));
+        lasavename = ['la', num2str(psver)];
+        stamps_save(lasavename, la);
+        % ----------------------------------------------
+        
         clear grid_data;
     end
 

@@ -166,6 +166,15 @@ done
 
 cd .. # Back to SMALL_BASELINES root
 
+# --- 1.2 NEW: Copy UTC Satellite Time (if exists) ---
+UTC_FILE="$GEOM_PATH/utc_satellite.dat"
+if [ -f "$UTC_FILE" ]; then
+    echo "  Copying UTC time file: utc_satellite.dat"
+    cp "$UTC_FILE" "utc_time.txt"
+else
+    echo "  Warning: $UTC_FILE not found."
+fi
+
 # --- Step 2: Integrated Logic (isce2stamps + isce_los2stamps_ENU) ---
 echo "-----------------------------------------------------------------"
 echo "Step 2: Extracting Geometry & ENU Coefficients"

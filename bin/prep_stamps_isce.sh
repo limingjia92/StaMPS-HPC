@@ -124,6 +124,9 @@ cp "$DATA_DIR/lambda.1.in" .
 cp "$DATA_DIR/heading.1.in" . 2>/dev/null # Optional
 cp "$DATA_DIR/len.txt" .
 cp "$DATA_DIR/width.txt" .
+if [ -f "$DATA_DIR/utc_time.txt" ]; then
+    cp "$DATA_DIR/utc_time.txt" .
+fi
 
 # Set oversampling factor (default 1 for ISCE usually)
 echo "1" > slc_osfactor.1.in
