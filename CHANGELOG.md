@@ -20,6 +20,8 @@ All notable changes to the StaMPS-HPC project will be documented in this file.
   - **Purpose**: Bridges the data gap between ISCE2 outputs and downstream atmospheric correction tools (like TRAIN) that strictly require Look Angle geometry rather than Incidence Angle.
 - **`bin/make_isce_stack_ps.sh`, `bin/make_isce_stack_sbas.sh`, `bin/prep_stamps_isce.sh`, `matlab/ps_parms_initial.m`, & `matlab/sb_parms_initial.m`**: Implemented an end-to-end pipeline for the automated extraction, propagation, and saving of the `UTC_sat` variables (2026-04-02).
   - **Purpose**: Eliminates manual metadata lookups by automatically passing the satellite overpass time from the raw ISCE files directly into the StaMPS `parms.mat` structure, seamlessly preparing the dataset for time-dependent atmospheric correction models (e.g., ERA5 or GACOS).
+- **`matlab/ps_gacos2tca.m`**: Introduced a standalone utility to natively assimilate GACOS tropospheric delay products (GeoTIFF/Binary) into the processing workflow (2026-04-02).
+  - **Purpose**: Computes the TCA phase matrix for both PS and SBAS modes via direct geographic interpolation and strict reference point alignment, entirely eliminating the reliance on heavy external toolboxes like TRAIN.
   
 ### Changed
 - **`matlab/uw_stat_costs.m`**: Removed the experimental Pre-Unwrapping Filtering feature (2026-03-25).  
