@@ -63,6 +63,7 @@ Clone the repository and compile all C/C++ core binaries and MATLAB C-MEX module
 git clone https://github.com/limingjia92/StaMPS-HPC.git
 cd StaMPS-HPC
 make install
+
 ```
 
 ### 2. Environment Configuration
