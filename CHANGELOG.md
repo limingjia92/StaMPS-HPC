@@ -30,6 +30,12 @@ All notable changes to the StaMPS-HPC project will be documented in this file.
   - **Purpose**: Eliminates `parfor` and `vertcat` operations to guarantee 100% OOM prevention on massive datasets (e.g., >30M points), locking peak memory to the theoretical minimum.
 - **`matlab/ps_calc_ifg_std.m`**: Redesigned with a "Row-Block Streaming" (Dimensional Inversion) architecture (2026-04-02).
   - **Purpose**: Resolves severe HDF5 "I/O Thrashing" by sequentially reading data row-by-row. Strictly caps peak RAM under 10GB while maximizing multi-threaded CPU vectorization via implicit expansion.
+- **`matlab/ps_unwrap.m`, `matlab/uw_3d.m` & `matlab/uw_grid_wrapped.m`**: Completely overhauled the phase unwrapping I/O pipeline using "Row-Block Streaming" and a "Two-Phase Gridding" architecture (2026-04-03).
+  - **Purpose**: Eradicates OOM crashes and disk I/O deadlocks on massive datasets (>30M points) by bypassing full-matrix memory loading and optimizing `matfile` data access for `parfor`.
+- **`matlab/uw_sb_unwrap_space_time.m` & `matlab/uw_stat_costs.m`**: Upgraded temporal smoothing and statistical cost generation with memory-safe `parfor` slicing and implicit expansion (2026-04-03).
+  - **Purpose**: Accelerates 3D unwrapping and SNAPHU preparation while strictly preventing parfor variable broadcast spikes and `repmat` memory overhead.
+- **`matlab/sb_invert_uw.m`**: Redesigned SBAS inversion with "Two-Pass Block-IO" covariance calculation and streamed matrix multiplication (2026-04-03).
+  - **Purpose**: Eliminates >130GB RAM requirements during full-matrix loading and accelerates computation using a vectorized Generalized Least Squares (GLS) operator.
   
 ### Fixed
 - **`matlab_mex/Makefile`**: Added auto-detection for the `-batch` execution flag (2026-03-23).  

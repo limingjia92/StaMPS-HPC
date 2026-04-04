@@ -30,7 +30,7 @@ Significant engineering focus was placed on eliminating algorithmic bottlenecks 
 | **Step 4** (`ps_weed`) | 1578s | **370s** | **4.3x** | Graph Theory Adjacency, C-MEX Offloading, OpenMP |
 | **Step 5.5** (`ps_merge_patches`) | OOM Crash | **Stable** | **Mem Bound** | Streamed Pre-allocation, Global Mapping, Chunked Masking |
 | **Step 5.5** (`ps_calc_ifg_std`) | OOM / I/O Thrash | **Stable** | **I/O Bound** | Row-Block Streaming, Dimensional Inversion |
-| **Step 6** (`ps_unwrap`) | 1068s | **411s** | **2.6x** | Structural Optimization, Parallel Execution, Snaphu Optimization |
+| **Step 6** (`ps_unwrap`) | 1068s | **411s** | **2.6x** | Row-Block Streaming, Two-Phase Gridding, Parfor IPC |
 | **Step 7** (`ps_calc_scla`) | 29s | **14s** | **2.1x** | L2 Vectorization & Precision, L1 Vectorized IRLS |
 | **Step 7** (`ps_smooth_scla`) | 252s | **47s** | **5.4x** | Topology Generation, Vectorized Graph Traversal, Memory Projection |
 | **Step 8** (`ps_scn_filt`) | 529s | **80s** | **6.6x** | Topology Generation, Vectorized Filtering & Solving |
@@ -75,6 +75,8 @@ Significant engineering focus was placed on eliminating algorithmic bottlenecks 
 * **Architecture & OS Independence**: Refactored spaghetti code into clean blocks and dynamically parameterized `n_trial_wraps` across sensors. Eradicated legacy external system calls (e.g., `triangle`) and `uw_nosnaphu`, enforcing a robust Snaphu-based workflow using MATLAB's native `delaunayTriangulation` and `nearestNeighbor`.
 * **Parallel Execution & Memory**: Utilized `parfor` for concurrent interferogram gridding and statistical cost generation. Leveraged `snaphu -S` (Tile Mode) with `NPROC=1` for single-threaded efficiency within workers. Eliminated massive history matrices (~99% RAM saving) during smooth unwrapping via JIT-inlined objective functions.
 * **Advanced Solver & Vectorization**: Replaced pixel-wise loops with vectorized matrix operations (`accumarray`). Replaced the iterative `lscov` solver with a pre-calculated Generalized Least Squares (GLS) operator ($H$) and implemented block chunking to minimize RAM footprints.
+* **Row-Block Streaming & Two-Phase Gridding**: Completely eradicated OOM crashes and HDF5 "Orthogonal Read Penalty" (disk thrashing) during massive dataset unwrapping. Phase 1 streams data sequentially to RAM via accumarray; Phase 2 performs spatial filtering in pure memory, safely unleashing 100% multi-core CPU utilization.
+* **Parfor IPC & Implicit Expansion**: Replaced 65GB in-memory matrix passing with lightweight mapped file pointers (IPC) to prevent worker serialization crashes. Eradicated `repmat` memory overhead during temporal smoothing via modern implicit expansion.
 
 ### Step 7: Error Estimation (SCLA, Orbit & Atmosphere)
 * **L1/L2 Vectorization (`ps_calc_scla`)**: 

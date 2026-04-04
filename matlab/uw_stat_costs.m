@@ -156,9 +156,11 @@ ph_uw_slice = zeros(uw.n_ps, length(subset_ifg_index), 'single');
 msd_slice = zeros(length(subset_ifg_index), 1);
 
 % --- Pointers for Parfor Efficiency (Broadcast variables) ---
-uw_ph_ptr = uw.ph; 
+uw_ph_sliced = uw.ph(:, subset_ifg_index);
+spread_sliced = ut.spread(:, subset_ifg_index);
+dph_smooth_sliced = dph_smooth(:, subset_ifg_index);
+dph_space_uw_sliced = ut.dph_space_uw(:, subset_ifg_index);
 uw_nzix_ptr = uw.nzix;
-spread_ptr = ut.spread;
 
 % =========================================================================
 % PARALLEL PROCESSING LOOP
@@ -195,7 +197,7 @@ parfor idx = 1:length(subset_ifg_index)
     rowcost = rowcost_tmpl;
     colcost = colcost_tmpl;
     
-    spread_val = full(spread_ptr(:,i1));
+    spread_val = full(spread_sliced(:, idx));
     spread_val = int16(round((abs(spread_val)*nshortcycle^2)/6/costscale.*repmat(n_edges,1,size(spread_val,2))));
     sigsqtot = sigsq + spread_val;
     
@@ -212,7 +214,7 @@ parfor idx = 1:length(subset_ifg_index)
     colcost(:,2:4:end) = colstdgrid;
     
     % Calculate offset cycle based on smoothed phase
-    offset_cycle = (angle(exp(1i*ut.dph_space_uw(:,i1))) - dph_smooth(:,i1))/2/pi;
+    offset_cycle = (angle(exp(1i*dph_space_uw_sliced(:, idx))) - dph_smooth_sliced(:, idx))/2/pi;
     
     offgrid = zeros(size(rowix),'int16');
     offgrid(nzrowix) = round(offset_cycle(abs(rowix(nzrowix))).*sign(rowix(nzrowix))*nshortcycle);
@@ -229,7 +231,8 @@ parfor idx = 1:length(subset_ifg_index)
     fclose(fid_cost);
     
     % 3. Data Prep (Direct Write, No Filtering)
-    ifgw = reshape(uw_ph_ptr(Z,i1), nrow, ncol);
+    col_data = uw_ph_sliced(:, idx);
+    ifgw = reshape(col_data(Z), nrow, ncol);    
     
     % CRITICAL: Transpose for Row-Major (C-style) compatibility required by Snaphu
     ifgw_t = ifgw.'; 

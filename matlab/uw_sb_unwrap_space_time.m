@@ -380,12 +380,13 @@ else
             dph_space_series=[zeros(1,ui.n_edge);double(G(:,2:end))\double(angle(dph_space))'];
         end
         
-        dph_smooth_series=zeros(size(G,2),ui.n_edge,'single');
+        dph_smooth_series = zeros(size(G,2), ui.n_edge, 'single');
         for i1=1:n
-            time_diff_sq=(day(i1)-day).^2;
-            weight_factor=exp(-time_diff_sq/2/time_win^2);
-            weight_factor=weight_factor/sum(weight_factor);
-            dph_smooth_series(i1,:)=sum(dph_space_series.*repmat(weight_factor,1,ui.n_edge));
+            time_diff_sq = (day(i1) - day).^2;
+            weight_factor = exp(-time_diff_sq / 2 / time_win^2);
+            weight_factor = weight_factor / sum(weight_factor);
+            
+            dph_smooth_series(i1,:) = sum(dph_space_series .* weight_factor, 1);
         end
 
         dph_smooth_ifg=(G*dph_smooth_series)';
