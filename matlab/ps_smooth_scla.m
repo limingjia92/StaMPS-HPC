@@ -16,8 +16,9 @@ function []=ps_smooth_scla(use_small_baselines)
 %      native 'delaunayTriangulation', drastically improving speed and reliability.
 %   2. Vectorized Graph Traversal: Replaced millions of loop iterations with 
 %      'accumarray', dropping neighborhood extreme retrieval time to seconds.
-%   3. Memory Projection: Replaced giant matrix transpose division (G\Data')' 
-%      with pre-calculated operator Data * H_op' to eliminate OOM risks.
+%   3. Memory Projection & Expansion: Replaced giant matrix transpose division 
+%      and 'repmat' expansions with Streamed Block-IO Projection (H_op) and native 
+%      implicit expansion, effectively eliminating >80GB RAM spikes.
 %
 %   ======================================================================
 %   ORIGINAL HEADER (StaMPS)
@@ -97,7 +98,10 @@ C_ps_uw(ix2) = Cneigh_min(ix2); % increase negative outliers
 
 % --- HPC Opt 3: Memory-safe projection operator ---
 logit('   -> Calculating bperp matrix mapping...', 2);
-bp=load(bpname);
+m_bp = matfile(bpname);
+sz_bp = size(m_bp, 'bperp_mat');
+is_bp_vector = (sz_bp(1) == 1); 
+
 if use_small_baselines==0
     if strcmpi(small_baseline_flag,'y')
         G = zeros(ps.n_ifg, ps.n_image);
@@ -109,19 +113,42 @@ if use_small_baselines==0
         
         % Pre-calculate pseudo-inverse operator H_op
         H_op = (G' * G) \ G'; 
-        bperp_mat = single(double(bp.bperp_mat) * H_op');
         
+        % Block-flow pseudo-inverse projection
+        bperp_mat_raw = zeros(ps.n_ps, size(H_op, 1), 'single');
+        block_size = 1000000;
+        for b = 1:ceil(ps.n_ps / block_size)
+            idx = (b-1)*block_size + 1 : min(b*block_size, ps.n_ps);
+            if is_bp_vector
+                bp_chunk = repmat(m_bp.bperp_mat, length(idx), 1);
+            else
+                bp_chunk = m_bp.bperp_mat(idx, :);
+            end
+            bperp_mat_raw(idx, :) = single(double(bp_chunk) * H_op');
+        end
         % Insert zero column for master image
-        bperp_mat = [bperp_mat(:, 1:ps.master_ix-1), zeros(ps.n_ps, 1, 'single'), bperp_mat(:, ps.master_ix:end)];
+        bperp_mat = [bperp_mat_raw(:, 1:ps.master_ix-1), zeros(ps.n_ps, 1, 'single'), bperp_mat_raw(:, ps.master_ix:end)];
+        clear bperp_mat_raw;
     else
-        bperp_mat = [bp.bperp_mat(:, 1:ps.master_ix-1), zeros(ps.n_ps, 1, 'single'), bp.bperp_mat(:, ps.master_ix:end)];
+        if is_bp_vector
+            bp_full = repmat(m_bp.bperp_mat, ps.n_ps, 1);
+        else
+            bp_full = m_bp.bperp_mat;
+        end
+        bperp_mat = [bp_full(:, 1:ps.master_ix-1), zeros(ps.n_ps, 1, 'single'), bp_full(:, ps.master_ix:end)];
+        clear bp_full;
     end
 else
-    bperp_mat = bp.bperp_mat;
+    if is_bp_vector
+        bperp_mat = repmat(m_bp.bperp_mat, ps.n_ps, 1);
+    else
+        bperp_mat = m_bp.bperp_mat;
+    end
 end
+% =============================================================================================
 
 % Calculate smoothed SCLA phase
-ph_scla = repmat(K_ps_uw, 1, size(bperp_mat, 2)) .* bperp_mat;
+ph_scla = K_ps_uw .* bperp_mat;
 
 stamps_save(sclasmoothname, K_ps_uw, C_ps_uw, ph_scla, ph_ramp)    
 logit(1);

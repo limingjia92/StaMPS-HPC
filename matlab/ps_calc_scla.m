@@ -16,8 +16,13 @@ function [] = ps_calc_scla(use_small_baselines, coest_mean_vel)
 %      matrix operator, and fixed legacy bugs by strictly enforcing 'double' precision.
 %   2. L1 Vectorized IRLS: Replaced the inefficient 'fminsearch' with fully vectorized 
 %      IRLS, massively boosting execution speed and resolving local minima traps.
-%   3. Architecture Refactoring: Restructured the core solver to strictly separate 
-%      'scla_method' branches (L1/L2) and introduced block processing to prevent OOM.
+%   3. Streamed Casting & OOM Prevention: Eradicated >140GB RAM spikes caused by 
+%      global phase differencing and implicit precision expansion. The heavy 
+%      'double(diff())' operations are now strictly confined within the block-processing 
+%      solver loop, operating exclusively on lightweight data chunks.
+%   4. Architecture Refactoring: Restructured the core solver to strictly separate 
+%      'scla_method' branches (L1/L2), eliminated dangling global matrix references, 
+%      and introduced block processing to secure memory bounds.
 %
 %   ======================================================================
 %   ORIGINAL HEADER (StaMPS)
@@ -147,21 +152,20 @@ if use_small_baselines == 0
         bperp_mat = [bp.bperp_mat(:, 1:ps.master_ix-1), zeros(ps.n_ps, 1, 'single'), bp.bperp_mat(:, ps.master_ix:end)];
     end
     day = diff(ps.day(unwrap_ifg_index));
-    ph = double(diff(uw.ph_uw(:, unwrap_ifg_index), [], 2));
     bperp = diff(bperp_mat(:, unwrap_ifg_index), [], 2);
 else
     bperp_mat = bp.bperp_mat;
     bperp = bperp_mat(:, unwrap_ifg_index);
     day = ps.ifgday(unwrap_ifg_index, 2) - ps.ifgday(unwrap_ifg_index, 1);
-    ph = double(uw.ph_uw(:, unwrap_ifg_index));
 end
 clear bp
 
 % --- Build Design Matrix (G) & Covariance ---
+n_cols_ph = size(bperp, 2);
 if coest_mean_vel == 0 || length(unwrap_ifg_index) < 4
-    G = [ones(size(ph, 2), 1), double(mean(bperp)')];
+    G = [ones(n_cols_ph, 1), double(mean(bperp)')];
 else
-    G = [ones(size(ph, 2), 1), double(mean(bperp)'), double(day)];
+    G = [ones(n_cols_ph, 1), double(mean(bperp)'), double(day)];
 end
 
 ifg_vcm = eye(ps.n_ifg);
@@ -181,7 +185,7 @@ else
 end
 
 if use_small_baselines == 0
-    ifg_vcm_use = eye(size(ph, 2));
+    ifg_vcm_use = eye(n_cols_ph);
 else
     ifg_vcm_use = ifg_vcm(unwrap_ifg_index, unwrap_ifg_index);
 end
@@ -208,7 +212,11 @@ switch upper(scla_method)
         
         for b = 1:ceil(n_ps / block_size)
             idx = (b-1)*block_size + 1 : min(b*block_size, n_ps);
-            d_chunk = ph(idx, :)'; 
+            if use_small_baselines == 0
+                d_chunk = double(diff(uw.ph_uw(idx, unwrap_ifg_index), [], 2))'; 
+            else
+                d_chunk = double(uw.ph_uw(idx, unwrap_ifg_index))'; 
+            end
             m_est(:, idx) = H_L2 * d_chunk;
         end
         
@@ -230,7 +238,11 @@ switch upper(scla_method)
         
         for b = 1:ceil(n_ps / block_size)
             idx = (b-1)*block_size + 1 : min(b*block_size, n_ps);
-            d_chunk = double(ph(idx, :)');
+            if use_small_baselines == 0
+                d_chunk = double(diff(uw.ph_uw(idx, unwrap_ifg_index), [], 2))'; 
+            else
+                d_chunk = double(uw.ph_uw(idx, unwrap_ifg_index))'; 
+            end
             
             % Strict L2 initialization
             m_init = H_L2 * d_chunk; 

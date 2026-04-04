@@ -16,8 +16,12 @@ function []=ps_scn_filt_krig()
 %      QR decomposition (A\y), fixing catastrophic 2pi unwrapping errors.
 %   3. Variogram Fitting: Replaced 'lsqcurvefit' with a vectorized custom 
 %      Levenberg-Marquardt solver, boosting speed by 10x and avoiding crashes.
-%   4. Spatial Kriging: Built a global KD-Tree ('knnsearch') and inverted 
-%      the parallel loop, processing all interferograms in a single pass.
+%   4. Spatial Kriging (Parfor Fix): Inverted the spatial 'parfor' loop from 
+%      Nodes to Interferograms to establish perfect memory slicing, preventing 
+%      a >768GB broadcast storm of the massive 'deramped_all' matrix.
+%   5. OOM Prevention & Block-IO: Eradicated >380GB RAM spikes by implementing 
+%      Row-Block chunking for Temporal Deformation Modeling and Column-by-Column 
+%      solving for high-frequency edge integration, crushing peak memory demands.
 %
 %   ======================================================================
 %   ORIGINAL HEADER (StaMPS)
@@ -111,7 +115,6 @@ end
 % -------------------------------------------------------------------------
 isnanix=isnan(uw.ph_uw);
 uw.ph_uw(isnanix)=0;
-dph=ph_all(edges_nz(:,3),:)-ph_all(edges_nz(:,2),:);
 x_edges=(ps.xy(edges_nz(:,3),2)+ps.xy(edges_nz(:,2),2))*0.5;
 y_edges=(ps.xy(edges_nz(:,3),3)+ps.xy(edges_nz(:,2),3))*0.5;
 
@@ -119,10 +122,23 @@ y_edges=(ps.xy(edges_nz(:,3),3)+ps.xy(edges_nz(:,2),3))*0.5;
 years=(day- datenum('01-01-2000'))/365.25 ;
 A_time=[ years.^2 years sin(2*pi*years) cos(2*pi*years)-1 ones(size(years))];
 
-fprintf('   Extracting temporal deformation models (Vectorized)...\n');
-% Calculate temporal deformation models using multi-RHS matrix inversion
-modeled_defo_edges = single((A_time \ double(dph'))');
-dph = single(double(dph) - double(modeled_defo_edges) * A_time');
+fprintf('   Extracting temporal deformation models (Block-IO Vectorized)...\n');
+
+% ==================== Block I/O ====================
+modeled_defo_edges = zeros(N, size(A_time, 2), 'single');
+dph = zeros(N, n_ifg, 'single');
+block_size = 1000000; % 
+
+for b = 1:ceil(N / block_size)
+    idx = (b-1)*block_size + 1 : min(b*block_size, N);
+    
+    dph_chunk = double(ph_all(edges_nz(idx,3), :) - ph_all(edges_nz(idx,2), :));
+    
+    mod_chunk = (A_time \ dph_chunk')';
+    modeled_defo_edges(idx, :) = single(mod_chunk);
+    
+    dph(idx, :) = single(dph_chunk - mod_chunk * A_time');
+end
 
 % -------------------------------------------------------------------------
 % 4. TEMPORAL VARIOGRAM ESTIMATION
@@ -258,7 +274,12 @@ A=sparse([[1:n_edges]';[1:n_edges]'],[edges_nz(:,2);edges_nz(:,3)],[-ones(n_edge
 A=double(A(:,[1:ref_ix-1,ref_ix+1:n_ps]));
 
 fprintf('   Solving for high-frequency (in time) pixel phase...\n');
-ph_hpt_temp = A \ double(dph_hpt);
+
+ph_hpt_temp = zeros(size(A,2), n_ifg, 'single');
+for i = 1:n_ifg
+    ph_hpt_temp(:, i) = single(A \ double(dph_hpt(:, i))); % prevent OOM
+end
+
 ph_hpt=[ph_hpt_temp(1:ref_ix-1,:);zeros(1,n_ifg);ph_hpt_temp(ref_ix:end,:)]; 
 
 ph_scn=nan(n_ps,n_ifg);
@@ -319,27 +340,31 @@ if strcmpi(krig_atmo, 'y')
     
     % Perform spatial Kriging interpolation using a single, decoupled parfor loop.
     % Each worker processes one point and interpolates across all interferograms.
-    parfor nn = 1:n_ps
-        aps_row = zeros(1, n_ifg, 'single');
-        dist_nn = dist_all(nn, :);
-        idx_nn = idx_all(nn, :);
-        x0_nn = [ps_xy_2(nn), ps_xy_3(nn)];
+    parfor n = 1:n_ifg
+        % slice for interferogram
+        deramp_col = deramped_all(:, n); 
+        aps_col = zeros(n_ps, 1, 'single');
         
-        for n = 1:n_ifg
-            dx_max_n = dx_max_list(n);
+        dx_max_n = dx_max_list(n);
+        cv_model_n = cv_model_list{n};
+        
+        for nn = 1:n_ps
+            dist_nn = dist_all(nn, :);
+            idx_nn = idx_all(nn, :);
+            x0_nn = [ps_xy_2(nn), ps_xy_3(nn)];
+            
             valid_mask = dist_nn < dx_max_n;
             ind_nearby = idx_nn(valid_mask);
             
             if length(ind_nearby) >= 3
-                [aps_row(n), ~, ~, ~] = ps_kriging(...
-                    [ps_xy_2(ind_nearby), ps_xy_3(ind_nearby), deramped_all(ind_nearby, n)], ...
-                    x0_nn, ...
-                    Nmax, kriging_method, cv_model_list{n});
+                [aps_col(nn), ~, ~, ~] = ps_kriging(...
+                    [ps_xy_2(ind_nearby), ps_xy_3(ind_nearby), deramp_col(ind_nearby)], ...
+                    x0_nn, Nmax, kriging_method, cv_model_n);
             else
-                aps_row(n) = NaN; 
+                aps_col(nn) = NaN; 
             end
         end
-        aps_all(nn, :) = aps_row;
+        aps_all(:, n) = aps_col; 
     end
     
     % Reintegrate the deterministic spatial trends back into the interpolated APS

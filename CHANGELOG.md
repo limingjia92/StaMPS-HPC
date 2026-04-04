@@ -36,6 +36,12 @@ All notable changes to the StaMPS-HPC project will be documented in this file.
   - **Purpose**: Accelerates 3D unwrapping and SNAPHU preparation while strictly preventing parfor variable broadcast spikes and `repmat` memory overhead.
 - **`matlab/sb_invert_uw.m`**: Redesigned SBAS inversion with "Two-Pass Block-IO" covariance calculation and streamed matrix multiplication (2026-04-03).
   - **Purpose**: Eliminates >130GB RAM requirements during full-matrix loading and accelerates computation using a vectorized Generalized Least Squares (GLS) operator.
+- **`matlab/ps_calc_scla.m` & `matlab/ps_smooth_scla.m`**: Overhauled the SCLA estimation and smoothing pipelines with "Streamed Casting", Block-IO Projection, and implicit expansion (2026-04-04).
+  - **Purpose**: Eradicates >140GB RAM spikes by strictly confining memory-heavy operations (e.g., `double(diff())`, `repmat`, and pseudo-inverse projection) into chunked, low-memory footprints. Massively accelerates solvers via vectorized GLS/IRLS and native Delaunay graph traversal (`accumarray`).
+- **`matlab/ps_deramp.m`**: Implemented "Strict Precision Casting" and vectorized QR decomposition for orbital ramp estimation (2026-04-04).
+  - **Purpose**: Prevents fatal OOM crashes (e.g., 65GB+ spikes on 30M points) by restricting `double` precision strictly to the mathematical solver and immediately downgrading reconstructed ramps to `single`, preventing implicit type expansion during phase subtraction.
+- **`matlab/ps_scn_filt.m` & `matlab/ps_scn_filt_krig.m`**: Overhauled the SCN filtering pipeline utilizing "Node-Based Convolution" and "Parfor Loop Inversion" (2026-04-04).
+  - **Purpose**: Eradicates catastrophic OOM crashes (>380GB RAM spikes & >768GB parfor broadcasts) by filtering lightweight nodes instead of massive edge matrices, and enforcing strict memory slicing in spatial Kriging.
   
 ### Fixed
 - **`matlab_mex/Makefile`**: Added auto-detection for the `-batch` execution flag (2026-03-23).  

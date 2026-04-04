@@ -18,6 +18,9 @@ function []=ps_scn_filt()
 %      to boost speed and fix a heuristic bug causing missing neighbors.
 %   4. Parallel Processing: Implemented automatic parallel pool management 
 %      and 'parfor' to leverage multi-core CPUs for spatial filtering.
+%   5. OOM Prevention & Math Equivalency: Leveraged the linearity of temporal 
+%      convolution to filter nodes instead of edges (saving >64GB RAM). 
+%      Replaced global multi-RHS solving with column-by-column iteration.
 %
 %   ======================================================================
 %   ORIGINAL HEADER (StaMPS)
@@ -107,37 +110,42 @@ if ~isempty(deramp_ifg)
 end
 
 % =========================================================================
-% OPTIMIZATION 2: Vectorized Time Domain Low-Pass Filtering
+% OPTIMIZATION 2: Time Domain Low-Pass Filtering (Node-Based)
 % =========================================================================
-dph_hpt = ph_all(edges_nz(:,3),:) - ph_all(edges_nz(:,2),:);
-clear ph_all
-dph_lpt = zeros(size(dph_hpt), 'single');
-n_edges = size(dph_hpt,1);
-
-fprintf('   Low-pass filtering pixel-pairs in time...\n')
+% Exploiting linearity: Temporal filtering is performed on Nodes (32GB) 
+fprintf('   Low-pass filtering nodes in time (Memory-Safe)...\n')
+ph_lpt = zeros(size(ph_all), 'single');
 for i1=1:n_ifg
     time_diff_sq = (day(i1)-day)'.^2;
     weight_factor = exp(-time_diff_sq/2/time_win^2);
     weight_factor(master_ix) = 0; 
     weight_factor = weight_factor/sum(weight_factor);
     
-    dph_lpt(:,i1) = single(double(dph_hpt) * weight_factor');
+    ph_lpt(:,i1) = single(double(ph_all) * weight_factor');
 end
 
-dph_hpt = dph_hpt - dph_lpt;  
-clear dph_lpt
+ph_hpt_nodes = ph_all - ph_lpt;  
+clear ph_all ph_lpt
 
+n_edges = size(edges_nz, 1);
 ref_ix = 1;
 A = sparse([[1:n_edges]';[1:n_edges]'],[edges_nz(:,2);edges_nz(:,3)],[-ones(n_edges,1);ones(n_edges,1)]);
 A = double(A(:,[1:ref_ix-1,ref_ix+1:n_ps]));
-clear edges_nz
 
 % =========================================================================
-% OPTIMIZATION 3: Multi-RHS Sparse Matrix Solving
+% OPTIMIZATION 3: Column-by-Column Sparse Matrix Solving
 % =========================================================================
-fprintf('   Solving for high-frequency (in time) pixel phase...\n')
-ph_hpt_temp = A \ double(dph_hpt);
-clear A dph_hpt
+fprintf('   Solving for high-frequency (in time) pixel phase (Column-by-Column)...\n')
+% Replaced multi-RHS global solve with a memory-safe column loop.
+ph_hpt_temp = zeros(size(A,2), n_ifg, 'single');
+
+for i = 1:n_ifg
+    % Extract High-Pass Time diff for ONE IFG only
+    dph_col = double(ph_hpt_nodes(edges_nz(:,3), i) - ph_hpt_nodes(edges_nz(:,2), i));
+    ph_hpt_temp(:, i) = single(A \ dph_col);
+end
+
+clear dph_col A ph_hpt_nodes edges_nz
 
 ph_hpt = [ph_hpt_temp(1:ref_ix-1, :); zeros(1,n_ifg); ph_hpt_temp(ref_ix:end, :)]; 
 clear ph_hpt_temp

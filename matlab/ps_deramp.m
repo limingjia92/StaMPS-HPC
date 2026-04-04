@@ -14,9 +14,13 @@ function [ph_all, ph_ramp] = ps_deramp(ps, ph_all)
 %   HPC Optimization & Algorithm Enhancements:
 %   1. Vectorized Solver: Replaced iterative 'lscov' with vectorized QR decomposition 
 %      (\), leveraging BLAS Level 3 for speedup and numerical stability.
-%   2. Geometric Consistency: Implemented "Common Valid Pixel" strategy to ensure 
+%   2. Strict Precision Casting (OOM Prevention): Eradicated massive memory spikes 
+%      (e.g., 65GB+ on 30M points) by confining 'double' precision strictly to the 
+%      solver phase. Immediately casting the reconstructed ramp back to 'single' 
+%      prevents fatal implicit type expansion during phase subtraction.
+%   3. Geometric Consistency: Implemented "Common Valid Pixel" strategy to ensure 
 %      orbital planes are estimated from a consistent scatterer set across time.
-%   3. Parameter Modernization: Replaced legacy 'load' with 'getparm' for 'deramp_degree'
+%   4. Parameter Modernization: Replaced legacy 'load' with 'getparm' for 'deramp_degree'
 %      and integrated spatial masking with coordinate rotation to exclude deformation.
 %
 %   ======================================================================
@@ -115,20 +119,21 @@ function [ph_all, ph_ramp] = ps_deramp(ps, ph_all)
         fprintf('   Solver: Using %d common valid points for vectorized estimation.\n', n_valid);
         
         % Global Solve: (N_valid x M_param) \ (N_valid x N_ifg)
-        % Using MATLAB's mldivide (\) which employs QR decomposition for stability
-        coeffs = A(global_valid, :) \ ph_all(global_valid, :); 
+        % Ensure RHS is double for precision, but immediate cast back to single
+        coeffs = A(global_valid, :) \ double(ph_all(global_valid, :)); 
         
-        % Reconstruct Ramp
-        ph_ramp = A * coeffs;
+        % Force the massive ramp matrix to be SINGLE immediately
+        ph_ramp = single(A * coeffs);
         
-        % Remove Ramp
+        % Remove Ramp (single - single = single, NO memory explosion!)
         ph_all = ph_all - ph_ramp;
         
     else
         % Fallback Strategy: Loop through interferograms if NaN distribution varies significantly
         fprintf('   Solver: Common valid points insufficient. Falling back to per-interferogram loop.\n');
         
-        ph_ramp = NaN(size(ph_all));
+        % Pre-allocate as SINGLE (Original NaN(size) defaults to double)
+        ph_ramp = nan(size(ph_all), 'single'); 
         
         for k = 1:n_ifg
             % Select valid points for current IFG
@@ -136,8 +141,10 @@ function [ph_all, ph_ramp] = ps_deramp(ps, ph_all)
             
             if sum(valid_idx) > n_params + 5
                 % Solve for current IFG
-                c = A(valid_idx, :) \ ph_all(valid_idx, k);
-                ramp_k = A * c;
+                c = A(valid_idx, :) \ double(ph_all(valid_idx, k));
+                
+                % [HPC FIX]: Cast back to single
+                ramp_k = single(A * c);
                 
                 ph_ramp(:,k) = ramp_k;
                 ph_all(:,k) = ph_all(:,k) - ramp_k;
@@ -148,5 +155,4 @@ function [ph_all, ph_ramp] = ps_deramp(ps, ph_all)
     end
     
     fprintf('PS_DERAMP: Completed.\n');
-
 end
