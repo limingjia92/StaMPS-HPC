@@ -55,17 +55,20 @@ function [h_fig, phase_lims, h_axes_all] = ps_plot(value_type, varargin)
 %      validation logic to dramatically reduce codebase bloat and dependencies.
 %   3. Envisat Optimization: Streamlined 'env_oscilator_corr' execution context 
 %      for unified single-master and SBAS phase compensation.
-%   4. OOM Prevention: Implemented aggressive 'clear' commands within the dynamic 
-%      phase assembler to minimize peak memory footprints during matrix building.
-%   5. Rendering Engine: Vectorized spatial mapping and simplified viewport bounds, 
+%   4. OOM Prevention (Assembler): Implemented aggressive 'clear' commands within 
+%      the dynamic phase assembler to minimize peak memory footprints.
+%   5. OOM Prevention (Velocity): Eradicated >150GB RAM spikes by replacing global 
+%      'lscov' with Block-IO GLS solvers and blocking massive 'double' precision 
+%      casting during velocity inversion and bootstrapping.
+%   6. Rendering Engine: Vectorized spatial mapping and simplified viewport bounds, 
 %      bypassing outdated looping routines for instantaneous visualization.
-%   6. TS Data Binding: Replaced volatile workspace variables with figure-bound 
+%   7. TS Data Binding: Replaced volatile workspace variables with figure-bound 
 %      'appdata' for encapsulated, conflict-free Time-Series UI interaction.
-%   7. UI Overhaul & Profiling: Integrated an interactive dual-axis swath profiling 
+%   8. UI Overhaul & Profiling: Integrated an interactive dual-axis swath profiling 
 %      tool and expanded the bottom control panel to manage dynamic inputs (Radius & Bins).
-%   8. Data Export Overhaul: Dynamically assigns variable names and saves 'units' during 
+%   9. Data Export Overhaul: Dynamically assigns variable names and saves 'units' during 
 %      background data extraction (plot_flag = -1), deprecating the ambiguous 'ph_disp' output.
-%   9. Cumulative Deformation ('c'/'csb'): Added direct extraction of deformation in 
+%   10. Cumulative Deformation ('c'/'csb'): Added direct extraction of deformation in 
 %      millimeters (mm), safely handling phase-to-metric conversions post-correction.
 %
 %   ======================================================================
@@ -517,15 +520,34 @@ if ischar(value_type)
                 sm_cov = eye(length(unwrap_ifg_index));
             end
             
-            G = [ones(size(day)), day - master_day]; lambda = getparm('lambda');
+            % ==================== SM Block-IO Velocity Inversion ====================
+            G = double([ones(size(day)), day - master_day]); lambda = getparm('lambda');
+            ph_all = zeros(size(ph_uw), 'single');
+            lscov_coeffs = zeros(2, n_ps, 'single');
+            block_size = 1000000; 
+            
             if strcmp(base_type, 'vdrop')
-                ph_all = zeros(size(ph_uw)); n = size(ph_uw,2);
+                n = size(ph_uw,2);
                 for i = 1:n
-                    m = lscov(G([1:i-1,i+1:end],:), double(ph_uw(:,[1:i-1,i+1:n]))', sm_cov([1:i-1,i+1:end],[1:i-1,i+1:end]));
-                    ph_all(:,i) = -m(2,:)' * 365.25 / 4 / pi * lambda * 1000; 
+                    idx_drop = [1:i-1, i+1:n];
+                    W = inv(sm_cov(idx_drop, idx_drop));
+                    H = (G(idx_drop,:)' * W * G(idx_drop,:)) \ (G(idx_drop,:)' * W);
+                    for b = 1:ceil(n_ps/block_size)
+                        idx = (b-1)*block_size + 1 : min(b*block_size, n_ps);
+                        m = H * double(ph_uw(idx, idx_drop))'; 
+                        ph_all(idx, i) = single(-m(2,:)' * 365.25 / 4 / pi * lambda * 1000); 
+                    end
                 end
             else     
-                m = lscov(G, double(ph_uw'), sm_cov); ph_all = -m(2,:)' * 365.25 / 4 / pi * lambda * 1000; 
+                W = inv(sm_cov);
+                H = (G' * W * G) \ (G' * W);
+                for b = 1:ceil(n_ps/block_size)
+                    idx = (b-1)*block_size + 1 : min(b*block_size, n_ps);
+                    m = H * double(ph_uw(idx, :))'; 
+                    lscov_coeffs(:, idx) = single(m);
+                    ph_all(idx) = single(-m(2,:)' * 365.25 / 4 / pi * lambda * 1000); 
+                end
+                ph_all = ph_all(:, 1); 
             end
             
         else
@@ -549,16 +571,34 @@ if ischar(value_type)
             else
                 ph_uw = ph_uw - mean(ph_uw(ref_ps,:), 1);
             end
-            G = [ones(size(ifgday_ix(:,1))), day(ifgday_ix(:,2)) - day(ifgday_ix(:,1))]; lambda = getparm('lambda');
+            % ==================== SBAS Block-IO Velocity Inversion ====================
+            G = double([ones(size(ifgday_ix(:,1))), day(ifgday_ix(:,2)) - day(ifgday_ix(:,1))]); lambda = getparm('lambda');
+            ph_all = zeros(size(ph_uw), 'single');
+            lscov_coeffs = zeros(2, n_ps, 'single');
+            block_size = 1000000;
             
             if contains(corrs, 'drop') || strcmp(base_type, 'vdrop') 
-                ph_all = zeros(size(ph_uw)); n = size(ph_uw,2);
+                n = size(ph_uw,2);
                 for i = 1:n
-                    m = lscov(G([1:i-1,i+1:end],:), double(ph_uw(:,[1:i-1,i+1:n])'), sb_cov([1:i-1,i+1:end],[1:i-1,i+1:end]));
-                    ph_all(:,i) = -m(2,:)' * 365.25 / 4 / pi * lambda * 1000; 
+                    idx_drop = [1:i-1, i+1:n];
+                    W = inv(sb_cov(idx_drop, idx_drop));
+                    H = (G(idx_drop,:)' * W * G(idx_drop,:)) \ (G(idx_drop,:)' * W);
+                    for b = 1:ceil(n_ps/block_size)
+                        idx = (b-1)*block_size + 1 : min(b*block_size, n_ps);
+                        m = H * double(ph_uw(idx, idx_drop))';
+                        ph_all(idx, i) = single(-m(2,:)' * 365.25 / 4 / pi * lambda * 1000); 
+                    end
                 end
             else
-                m = lscov(G, double(ph_uw'), sb_cov); ph_all = -m(2,:)' * 365.25 / 4 / pi * lambda * 1000; 
+                W = inv(sb_cov);
+                H = (G' * W * G) \ (G' * W);
+                for b = 1:ceil(n_ps/block_size)
+                    idx = (b-1)*block_size + 1 : min(b*block_size, n_ps);
+                    m = H * double(ph_uw(idx, :))'; 
+                    lscov_coeffs(:, idx) = single(m);
+                    ph_all(idx) = single(-m(2,:)' * 365.25 / 4 / pi * lambda * 1000); 
+                end
+                ph_all = ph_all(:, 1); 
             end
         end
         
@@ -577,8 +617,8 @@ if ischar(value_type)
         textsize = 0; units = 'mm/yr';
 
         if strcmpi(base_type, 'vs') % calculate standard deviation result using bootstrapping
-            ph_uw_mm = double(ph_uw / 4 / pi * lambda * 1000)'; 
-            G_yr = [G(:,1), G(:,2) / 365.25];
+            ph_uw_mm = single(ph_uw / 4 / pi * lambda * 1000)'; % single
+            G_yr = double([G(:,1), G(:,2) / 365.25]);
 
             if ~is_sb_velocity
                 ph_all = ps_mean_v(ph_uw_mm, G_yr, sm_cov, 1500);

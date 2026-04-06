@@ -58,16 +58,11 @@ function profile_plot(h_fig)
     end
 
     % 3. Load exclusive data for this figure
-    ts_data = load(ts_matname);
+    ts_data = matfile(ts_matname);
     lonlat = ts_data.lonlat;
     
-    % Check for velocity field result
-    if isfield(ts_data, 'ph_all')
-        v_all = ts_data.ph_all;
-    else
-        errordlg('Variable ''ph_all'' (velocity field) not found in bound data.', 'Data Error');
-        return;
-    end
+    % Only fetch the 1D velocity array
+    v_all = ts_data.ph_all;
     
     momfig_name = ['(', get(h_fig, 'Name'), ')'];
     

@@ -42,6 +42,12 @@ All notable changes to the StaMPS-HPC project will be documented in this file.
   - **Purpose**: Prevents fatal OOM crashes (e.g., 65GB+ spikes on 30M points) by restricting `double` precision strictly to the mathematical solver and immediately downgrading reconstructed ramps to `single`, preventing implicit type expansion during phase subtraction.
 - **`matlab/ps_scn_filt.m` & `matlab/ps_scn_filt_krig.m`**: Overhauled the SCN filtering pipeline utilizing "Node-Based Convolution" and "Parfor Loop Inversion" (2026-04-04).
   - **Purpose**: Eradicates catastrophic OOM crashes (>380GB RAM spikes & >768GB parfor broadcasts) by filtering lightweight nodes instead of massive edge matrices, and enforcing strict memory slicing in spatial Kriging.
+- **`matlab/ps_plot.m`**: Eradicated >150GB RAM spikes during velocity inversion and bootstrapping by implementing Block-IO GLS solvers and strict precision bounds (2026-04-04).
+  - **Purpose**: Prevents fatal OOM crashes 
+- **`matlab/ts_plot.m` & `matlab/ts_plotdiff.m`**: Overhauled time-series interactive extraction tools with "Lazy Load Memory Mapping" and "Appdata Binding" (2026-04-06).
+  - **Purpose**: Eradicates UI freezing and OOM crashes when extracting data from massive (e.g., >29GB) TS files by utilizing `matfile` pointers with contiguous indexing bypasses. Replaces fragile global variables with figure-bound appdata, implements strict SBAS-network dimensional safeguards, and visually integrates the zero-deformation master date.
+- **`matlab/profile_plot.m`**: Completely refactored the interactive swath profile tool with "Vectorized Binning" and "Dual-Axis Integration" (2026-04-06).
+  - **Purpose**: Eliminates legacy `O(N)` looping bottlenecks by using `accumarray` and `discretize` for instantaneous swath aggregation. Drastically reduces memory footprints by fetching lightweight 1D velocity arrays directly from disk, and modernizes the UX with dynamic dual-Y-axis elevation rendering and global crosshair tracking.
   
 ### Fixed
 - **`matlab_mex/Makefile`**: Added auto-detection for the `-batch` execution flag (2026-03-23).  

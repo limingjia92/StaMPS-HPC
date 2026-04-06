@@ -46,8 +46,7 @@ function ts_plotdiff(h_fig)
     end
     
     % 3. Load exclusive TS data for this figure
-    ts_data = load(ts_matname);
-    ph_mm = ts_data.ph_mm;
+    ts_data = matfile(ts_matname);
     lonlat = ts_data.lonlat;
     day = ts_data.day;
     master_day = ts_data.master_day;
@@ -110,8 +109,25 @@ function ts_plotdiff(h_fig)
     end
     
     % 6. Extract and compute double difference (Pt 1 - Pt 2)
-    ts1 = mean(ph_mm(pts_near_ix1, :), 1)';
-    ts2 = mean(ph_mm(pts_near_ix2, :), 1)';
+    valid_idx1 = find(pts_near_ix1);
+    valid_idx2 = find(pts_near_ix2);
+    disp('   -> Fetching time-series for both locations from disk...');
+    n_dates = length(day);
+    
+    % Fetch Pt 1 reference matrix
+    ts_matrix1 = zeros(length(valid_idx1), n_dates, 'single');
+    for k = 1:length(valid_idx1)
+        ts_matrix1(k, :) = ts_data.ph_mm(valid_idx1(k), :);
+    end
+    ts1 = mean(ts_matrix1, 1)';
+    
+    % Fetch Pt 2 target matrix
+    ts_matrix2 = zeros(length(valid_idx2), n_dates, 'single');
+    for k = 1:length(valid_idx2)
+        ts_matrix2(k, :) = ts_data.ph_mm(valid_idx2(k), :);
+    end
+    ts2 = mean(ts_matrix2, 1)';
+    
     ts_diff = ts1 - ts2;
     
     % 7. SBAS invalid network interception

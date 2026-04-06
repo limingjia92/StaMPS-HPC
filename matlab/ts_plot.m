@@ -46,8 +46,9 @@ function ts_plot(h_fig)
     end
     
     % 3. Load exclusive TS data for this figure
-    ts_data = load(ts_matname);
-    ph_mm = ts_data.ph_mm;
+    ts_data = matfile(ts_matname);
+    
+    % Only load lightweight arrays into memory (Coordinates & Time axes)
     lonlat = ts_data.lonlat;
     day = ts_data.day;
     master_day = ts_data.master_day;
@@ -94,7 +95,14 @@ function ts_plot(h_fig)
     end
     
     % 6. Extract deformation data
-    ts_matrix = ph_mm(pts_near_ix, :);
+    valid_idx = find(pts_near_ix); % Convert logical to linear indices for matfile
+    disp(['   -> Fetching time-series for ', num2str(length(valid_idx)), ' point(s) from disk...']);
+    n_dates = length(day);
+    ts_matrix = zeros(length(valid_idx), n_dates, 'single');
+    for k = 1:length(valid_idx)
+        ts_matrix(k, :) = ts_data.ph_mm(valid_idx(k), :);
+    end
+    
     ts = mean(ts_matrix, 1)';
     
     % 7. SBAS invalid network interception
