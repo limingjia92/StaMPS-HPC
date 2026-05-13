@@ -93,27 +93,28 @@ fprintf('   %d edges created successfully.\n', N);
 % -------------------------------------------------------------------------
 % 2. PHASE DERAMPING
 % -------------------------------------------------------------------------
-if strcmpi(deramp_ifg,'all') 
-    deramp_ifg=1:ps.n_ifg;
-end
+% deramps all interferograms before spatial APS estimation.
+deramp_ifg=1:ps.n_ifg;
 deramp_ifg=intersect(deramp_ifg,unwrap_ifg_index);
-deramp_ix=zeros(size(deramp_ifg));
-ph_ramp=zeros(n_ps,length(deramp_ifg));
+deramp_ix = zeros(size(deramp_ifg));
+ph_ramp = zeros(n_ps, n_ifg, 'single');
 
 if ~isempty(deramp_ifg)
-    fprintf('   Removing phase ramps from selected interferograms...\n');
-    G=double([ones(n_ps,1),ps.xy(:,2),ps.xy(:,3)]);
-    
-    for i=1:length(deramp_ifg)
-        i3=find(unwrap_ifg_index==deramp_ifg(i));
-        deramp_ix(i)=i3;
-        d=(ph_all(:,i3));
-        m=G\double(d(:));
-        ph_this_ramp=G*m;
-        ph_all(:,i3)=ph_all(:,i3)-ph_this_ramp;
-        ph_ramp(:,i)=ph_this_ramp;
+    fprintf('   Removing phase ramps from all interferograms for Kriging APS...\n');
+    G = double([ones(n_ps,1), ps.xy(:,2), ps.xy(:,3)]);
+
+    for i = 1:length(deramp_ifg)
+        i3 = find(unwrap_ifg_index == deramp_ifg(i));
+        deramp_ix(i) = i3;
+
+        d = ph_all(:, i3);
+        m = G \ double(d(:));
+        ph_this_ramp = single(G * m);
+
+        ph_all(:, i3) = ph_all(:, i3) - ph_this_ramp;
+        ph_ramp(:, i3) = ph_this_ramp;
     end
-    save(scnname,'ph_ramp');
+    save(scnname, 'ph_ramp');
 end
 
 % -------------------------------------------------------------------------
