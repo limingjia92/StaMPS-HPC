@@ -225,7 +225,7 @@ function ps_parms_default()
     if ~isfield(parms,'scla_method')
         parms.scla_method = 'L2';           % Method for estimating SCLA (e.g., 'L2').
     end
-
+g
     % =========================================================================
     % STEP 8: FILTER SPATIALLY CORRELATED NOISE 
     % =========================================================================
@@ -241,9 +241,6 @@ function ps_parms_default()
     end
     if ~isfield(parms,'scn_kriging_flag')
         parms.scn_kriging_flag = 'n';       % Use kriging-based SCN filtering (computationally expensive).
-    end
-    if ~isfield(parms,'krig_atmo')
-        parms.krig_atmo = 'y';              % Estimating Atmospheric Phase Screen using spatial Kriging (computationally expensive).
     end
 
     % =========================================================================

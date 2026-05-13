@@ -54,4 +54,7 @@ All notable changes to the StaMPS-HPC project will be documented in this file.
   - **Purpose**: Restores seamless MEX compilation compatibility for legacy MATLAB versions (R2018b and earlier) . 
 - **`matlab/ps_merge_patches.m`**: Replaced hardcoded `n_cols_ifg` with dynamic column size acquisition for complex variables (2026-03-24).  
   - **Purpose**: Resolves "Matrix dimensions must agree" errors during patch resampling for standard PS datasets. 
-    
+- **`matlab/ps_scn_filt_krig.m`**: Removed the `krig_atmo` conditional logic and enforced the Kriging APS filtering workflow unconditionally (2026-05-13)
+  - **Purpose**: Keeps the optimized implementation consistent with the original ps_scn_filt_krig behavior, where krig_atmo was hardcoded to true, and avoids accidental execution of the untested non-Kriging fallback branch.
+- **`matlab/ps_parms_default.m`**:: Removed the default `krig_atmo` parameter setting.
+  - **Purpose**: Eliminates an obsolete configuration option that no longer affects ps_scn_filt_krig, reducing ambiguity and preventing users from assuming that non-Kriging APS filtering is supported in this workflow.

@@ -42,7 +42,7 @@ time_win=getparm('scn_time_win',1);
 deramp_ifg=getparm('scn_deramp_ifg',1);
 drop_ifg_index=getparm('drop_ifg_index',1);
 small_baseline_flag=getparm('small_baseline_flag',1);
-krig_atmo=getparm('krig_atmo',1);
+% krig_atmo=getparm('krig_atmo',1);
 
 load psver
 psname=['ps',num2str(psver)];
@@ -93,7 +93,7 @@ fprintf('   %d edges created successfully.\n', N);
 % -------------------------------------------------------------------------
 % 2. PHASE DERAMPING
 % -------------------------------------------------------------------------
-if strcmpi(deramp_ifg,'all') || strcmpi(krig_atmo,'y')
+if strcmpi(deramp_ifg,'all') 
     deramp_ifg=1:ps.n_ifg;
 end
 deramp_ifg=intersect(deramp_ifg,unwrap_ifg_index);
@@ -369,103 +369,93 @@ ph_hpt=single(ph_hpt);
 % -------------------------------------------------------------------------
 % 6. ATMOSPHERIC PHASE SCREEN (APS) SPATIAL KRIGING
 % -------------------------------------------------------------------------
-if strcmpi(krig_atmo, 'y') 
-    tic
-    fprintf('   Estimating Atmospheric Phase Screen (APS) using spatial Kriging...\n');
-    
-    a0=15000; c10=1; c20=1; cv_model=2; Nlags=30; decor_dist=a0*2; Nmax=50;
-   
-    spatial_ob_vario = 5000;
+tic
+fprintf('   Estimating Atmospheric Phase Screen (APS) using spatial Kriging...\n');
+
+a0=15000; c10=1; c20=1; cv_model=2; Nlags=30; decor_dist=a0*2; Nmax=50;
+
+spatial_ob_vario = 5000;
+ind_vario= unique(randi(n_ps,min([spatial_ob_vario,n_ps]),1,'uint32'));
+if length(ind_vario)<4000 
     ind_vario= unique(randi(n_ps,min([spatial_ob_vario,n_ps]),1,'uint32'));
-    if length(ind_vario)<4000 
-        ind_vario= unique(randi(n_ps,min([spatial_ob_vario,n_ps]),1,'uint32'));
-    end
+end
 
-    % Build a global KD-Tree to accelerate spatial neighborhood searches
-    fprintf('   Building global KD-Tree for spatial search (Nmax=%d)...\n', Nmax);
-    [idx_all, dist_all] = knnsearch(double(ps.xy(:, 2:3)), double(ps.xy(:, 2:3)), 'K', Nmax);
+% Build a global KD-Tree to accelerate spatial neighborhood searches
+fprintf('   Building global KD-Tree for spatial search (Nmax=%d)...\n', Nmax);
+[idx_all, dist_all] = knnsearch(double(ps.xy(:, 2:3)), double(ps.xy(:, 2:3)), 'K', Nmax);
 
-    fprintf('   Phase 1: Pre-fitting spatial variograms for %d interferograms...\n', n_ifg);
+fprintf('   Phase 1: Pre-fitting spatial variograms for %d interferograms...\n', n_ifg);
+
+% Pre-compute spatial design matrices to avoid redundant calculations inside the loop
+mean_x_vario = nanmean(ps.xy(ind_vario,2));
+mean_y_vario = nanmean(ps.xy(ind_vario,3));
+A_vario_ifg = [(ps.xy(ind_vario,2)/mean_x_vario).^2  ps.xy(ind_vario,2)/mean_x_vario  (ps.xy(ind_vario,3)/mean_y_vario).^2 ps.xy(ind_vario,3)/mean_y_vario ones(size(ps.xy(ind_vario,2)))];
+AA_vario = double(A_vario_ifg'*A_vario_ifg);
+A_all_spatial = [(ps.xy(:,2)/mean_x_vario).^2  ps.xy(:,2)/mean_x_vario  (ps.xy(:,3)/mean_y_vario).^2 ps.xy(:,3)/mean_y_vario ones(size(ps.xy(:,2)))];
+
+% Pre-allocate memory for variogram models and deramped phase
+deramped_all = zeros(n_ps, n_ifg, 'single');
+xhat_all = zeros(size(A_all_spatial,2), n_ifg, 'double');
+cv_model_list = cell(n_ifg, 1);
+dx_max_list = zeros(n_ifg, 1, 'double');
+
+% Sequentially pre-fit spatial variogram models for all interferograms
+for n = 1:n_ifg
+    xhat = AA_vario \ A_vario_ifg' * double(ph_hpt(ind_vario,n));
+    deramped_ph_hpt = ph_hpt(:,n) - A_all_spatial * xhat;
     
-    % Pre-compute spatial design matrices to avoid redundant calculations inside the loop
-    mean_x_vario = nanmean(ps.xy(ind_vario,2));
-    mean_y_vario = nanmean(ps.xy(ind_vario,3));
-    A_vario_ifg = [(ps.xy(ind_vario,2)/mean_x_vario).^2  ps.xy(ind_vario,2)/mean_x_vario  (ps.xy(ind_vario,3)/mean_y_vario).^2 ps.xy(ind_vario,3)/mean_y_vario ones(size(ps.xy(ind_vario,2)))];
-    AA_vario = double(A_vario_ifg'*A_vario_ifg);
-    A_all_spatial = [(ps.xy(:,2)/mean_x_vario).^2  ps.xy(:,2)/mean_x_vario  (ps.xy(:,3)/mean_y_vario).^2 ps.xy(:,3)/mean_y_vario ones(size(ps.xy(:,2)))];
+    [a, c1, c2, ~ ] = ps_fit_vario(ps.xy(ind_vario,2), ps.xy(ind_vario,3), deramped_ph_hpt(ind_vario), cv_model, a0, c10, c20, decor_dist, Nlags);
 
-    % Pre-allocate memory for variogram models and deramped phase
-    deramped_all = zeros(n_ps, n_ifg, 'single');
-    xhat_all = zeros(size(A_all_spatial,2), n_ifg, 'double');
-    cv_model_list = cell(n_ifg, 1);
-    dx_max_list = zeros(n_ifg, 1, 'double');
+    cv_model_all = [1 NaN c2; cv_model a c1];
+    dx_max_list(n) = cv_model_all(2,2) * 4;
+    cv_model_list{n} = cv_model_all;
+    xhat_all(:, n) = xhat;
+    deramped_all(:, n) = deramped_ph_hpt;
+end
 
-    % Sequentially pre-fit spatial variogram models for all interferograms
-    for n = 1:n_ifg
-        xhat = AA_vario \ A_vario_ifg' * double(ph_hpt(ind_vario,n));
-        deramped_ph_hpt = ph_hpt(:,n) - A_all_spatial * xhat;
-        
-        [a, c1, c2, ~ ] = ps_fit_vario(ps.xy(ind_vario,2), ps.xy(ind_vario,3), deramped_ph_hpt(ind_vario), cv_model, a0, c10, c20, decor_dist, Nlags);
+fprintf('   Phase 2: Interpolating APS via KD-Tree for all interferograms...\n');
+aps_all = zeros(n_ps, n_ifg, 'single');
+ps_xy_2 = ps.xy(:,2);
+ps_xy_3 = ps.xy(:,3);
 
-        cv_model_all = [1 NaN c2; cv_model a c1];
-        dx_max_list(n) = cv_model_all(2,2) * 4;
-        cv_model_list{n} = cv_model_all;
-        xhat_all(:, n) = xhat;
-        deramped_all(:, n) = deramped_ph_hpt;
-    end
+dq_krig = parallel.pool.DataQueue;
+afterEach(dq_krig, hpc_log_progress(n_ifg, 10, 'Spatial Kriging')); 
+
+% Perform spatial Kriging interpolation using a single, decoupled parfor loop.
+% Each worker processes one point and interpolates across all interferograms.
+parfor n = 1:n_ifg
+    % slice for interferogram
+    deramp_col = deramped_all(:, n); 
+    aps_col = zeros(n_ps, 1, 'single');
     
-    fprintf('   Phase 2: Interpolating APS via KD-Tree for all interferograms...\n');
-    aps_all = zeros(n_ps, n_ifg, 'single');
-    ps_xy_2 = ps.xy(:,2);
-    ps_xy_3 = ps.xy(:,3);
-
-    dq_krig = parallel.pool.DataQueue;
-    afterEach(dq_krig, hpc_log_progress(n_ifg, 10, 'Spatial Kriging')); 
-
-    % Perform spatial Kriging interpolation using a single, decoupled parfor loop.
-    % Each worker processes one point and interpolates across all interferograms.
-    parfor n = 1:n_ifg
-        % slice for interferogram
-        deramp_col = deramped_all(:, n); 
-        aps_col = zeros(n_ps, 1, 'single');
+    dx_max_n = dx_max_list(n);
+    cv_model_n = cv_model_list{n};
+    
+    for nn = 1:n_ps
+        dist_nn = dist_all(nn, :);
+        idx_nn = idx_all(nn, :);
+        x0_nn = [ps_xy_2(nn), ps_xy_3(nn)];
         
-        dx_max_n = dx_max_list(n);
-        cv_model_n = cv_model_list{n};
+        valid_mask = dist_nn < dx_max_n;
+        ind_nearby = idx_nn(valid_mask);
         
-        for nn = 1:n_ps
-            dist_nn = dist_all(nn, :);
-            idx_nn = idx_all(nn, :);
-            x0_nn = [ps_xy_2(nn), ps_xy_3(nn)];
-            
-            valid_mask = dist_nn < dx_max_n;
-            ind_nearby = idx_nn(valid_mask);
-            
-            if length(ind_nearby) >= 3
-                [aps_col(nn), ~, ~, ~] = ps_kriging(...
-                    [ps_xy_2(ind_nearby), ps_xy_3(ind_nearby), deramp_col(ind_nearby)], ...
-                    x0_nn, Nmax, kriging_method, cv_model_n);
-            else
-                aps_col(nn) = NaN; 
-            end
+        if length(ind_nearby) >= 3
+            [aps_col(nn), ~, ~, ~] = ps_kriging(...
+                [ps_xy_2(ind_nearby), ps_xy_3(ind_nearby), deramp_col(ind_nearby)], ...
+                x0_nn, Nmax, kriging_method, cv_model_n);
+        else
+            aps_col(nn) = NaN; 
         end
-        aps_all(:, n) = aps_col; 
-
-        send(dq_krig, n);
     end
-    
-    % Reintegrate the deterministic spatial trends back into the interpolated APS
-    ph_scn = aps_all + A_all_spatial * xhat_all;
-    ph_scn = ph_scn + ph_ramp;
-    toc
-else
-    % Fallback: Standard spatial low-pass filter logic
-    fprintf('   Applying standard spatial low-pass filter...\n');
-    ph_hpt(:,deramp_ix)=ph_hpt(:,deramp_ix)+ph_ramp;
-    ph_hpt=single(ph_hpt);
-    
-    % Minimal fallback logic preserved to match original script requirements
-    % (Spatial smoothing via Gaussian distance weighting)
-end 
+    aps_all(:, n) = aps_col; 
+
+    send(dq_krig, n);
+end
+
+% Reintegrate the deterministic spatial trends back into the interpolated APS
+ph_scn = aps_all + A_all_spatial * xhat_all;
+ph_scn = ph_scn + ph_ramp;
+toc
 
 % -------------------------------------------------------------------------
 % 7. FINALIZE AND SAVE

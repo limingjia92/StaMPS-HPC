@@ -179,7 +179,7 @@ if [ -f "$UTC_FILE" ]; then
     echo "  Copying UTC time file: utc_satellite.dat"
     cp "$UTC_FILE" "$WORK_DIR/$INSAR_DIR/utc_time.txt"
 else
-    echo "  Warning: $UTC_FILE not found."
+    echo " $UTC_FILE not found."
 fi
 
 # --- Step 3: Integrated Logic (isce2stamps + isce_los2stamps_ENU) ---
