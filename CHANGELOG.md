@@ -56,5 +56,7 @@ All notable changes to the StaMPS-HPC project will be documented in this file.
   - **Purpose**: Resolves "Matrix dimensions must agree" errors during patch resampling for standard PS datasets. 
 - **`matlab/ps_scn_filt_krig.m`**: Removed the `krig_atmo` conditional logic and enforced the Kriging APS filtering workflow unconditionally (2026-05-13)
   - **Purpose**: Keeps the optimized implementation consistent with the original ps_scn_filt_krig behavior, where krig_atmo was hardcoded to true, and avoids accidental execution of the untested non-Kriging fallback branch.
-- **`matlab/ps_parms_default.m`**:: Removed the default `krig_atmo` parameter setting.
+- **`matlab/ps_parms_default.m`**:: Removed the default `krig_atmo` parameter setting. (2026-05-13)
   - **Purpose**: Eliminates an obsolete configuration option that no longer affects ps_scn_filt_krig, reducing ambiguity and preventing users from assuming that non-Kriging APS filtering is supported in this workflow.
+- **`matlab/ps_scn_filt_krig.m`**: Added robust spatial Kriging safeguards and final output validation (2026-05-14).
+  - **Purpose**: Prevents all-NaN SCN columns caused by unrealistically small variogram ranges or sparse Kriging neighborhoods by enforcing geometry-based range lower bounds, nearest-neighbor fallback, robust SCN re-referencing, and pre-save hard checks for invalid `ph_scn_slave` / `ph_noise_res` outputs.

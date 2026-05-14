@@ -385,6 +385,13 @@ end
 fprintf('   Building global KD-Tree for spatial search (Nmax=%d)...\n', Nmax);
 [idx_all, dist_all] = knnsearch(double(ps.xy(:, 2:3)), double(ps.xy(:, 2:3)), 'K', Nmax);
 
+min_krig_neighbors = 10;
+dx_min = median(dist_all(:, min_krig_neighbors));
+a_min = dx_min / 4;
+
+fprintf('   Spatial Kriging safeguard: min_neighbors=%d, dx_min=%.3f, a_min=%.3f\n', ...
+    min_krig_neighbors, dx_min, a_min);
+
 fprintf('   Phase 1: Pre-fitting spatial variograms for %d interferograms...\n', n_ifg);
 
 % Pre-compute spatial design matrices to avoid redundant calculations inside the loop
@@ -407,8 +414,30 @@ for n = 1:n_ifg
     
     [a, c1, c2, ~ ] = ps_fit_vario(ps.xy(ind_vario,2), ps.xy(ind_vario,3), deramped_ph_hpt(ind_vario), cv_model, a0, c10, c20, decor_dist, Nlags);
 
+    if ~isfinite(a) || a < a_min
+        warning('PS_SCN_FILT_KRIG:SmallSpatialRange', ...
+            'IFG %d has invalid/small spatial range a=%g. Resetting to a_min=%g.', ...
+            n, a, a_min);
+        a = a_min;
+    end
+    
+    if ~isfinite(c1) || c1 <= 0
+        warning('PS_SCN_FILT_KRIG:BadC1', ...
+            'IFG %d has invalid c1=%g. Resetting to c10=%g.', ...
+            n, c1, c10);
+        c1 = c10;
+    end
+    
+    if ~isfinite(c2) || c2 < 0
+        warning('PS_SCN_FILT_KRIG:BadC2', ...
+            'IFG %d has invalid c2=%g. Resetting to c20=%g.', ...
+            n, c2, c20);
+        c2 = c20;
+    end
+    
     cv_model_all = [1 NaN c2; cv_model a c1];
-    dx_max_list(n) = cv_model_all(2,2) * 4;
+    dx_max_list(n) = max(cv_model_all(2,2) * 4, dx_min);
+
     cv_model_list{n} = cv_model_all;
     xhat_all(:, n) = xhat;
     deramped_all(:, n) = deramped_ph_hpt;
@@ -440,12 +469,25 @@ parfor n = 1:n_ifg
         valid_mask = dist_nn < dx_max_n;
         ind_nearby = idx_nn(valid_mask);
         
+        if length(ind_nearby) < 3
+            ind_nearby = idx_nn(1:min(min_krig_neighbors, numel(idx_nn)));
+        end
+        
+        valid_val = isfinite(deramp_col(ind_nearby));
+        ind_nearby = ind_nearby(valid_val);
+        
         if length(ind_nearby) >= 3
-            [aps_col(nn), ~, ~, ~] = ps_kriging(...
+            [aps_val, ~, ~, ~] = ps_kriging(...
                 [ps_xy_2(ind_nearby), ps_xy_3(ind_nearby), deramp_col(ind_nearby)], ...
                 x0_nn, Nmax, kriging_method, cv_model_n);
+        
+            if isfinite(aps_val)
+                aps_col(nn) = single(aps_val);
+            else
+                aps_col(nn) = 0;
+            end
         else
-            aps_col(nn) = NaN; 
+            aps_col(nn) = 0;
         end
     end
     aps_all(:, n) = aps_col; 
@@ -461,7 +503,17 @@ toc
 % -------------------------------------------------------------------------
 % 7. FINALIZE AND SAVE
 % -------------------------------------------------------------------------
-ph_scn=ph_scn-repmat(ph_scn(1,:),n_ps,1); 
+ref_scn = ph_scn(1,:);
+
+bad_ref = ~isfinite(ref_scn);
+if any(bad_ref)
+    ref_scn(bad_ref) = nanmedian(ph_scn(:,bad_ref), 1);
+end
+
+bad_ref = ~isfinite(ref_scn);
+ref_scn(bad_ref) = 0;
+
+ph_scn = ph_scn - repmat(ref_scn, n_ps, 1);
 ph_scn_slave=zeros(size(uw.ph_uw), 'single');
 ph_scn_slave(:,unwrap_ifg_index)=ph_scn;
 
@@ -470,6 +522,16 @@ ph_noise_res(:,unwrap_ifg_index)=ph_hpt-ph_scn_slave(:,unwrap_ifg_index);
 std_ph_noise=nanstd(ph_noise_res(:,unwrap_ifg_index),0,2);
 
 ph_scn_slave(:,master_ix)=0;
+
+% -------------------------------------------------------------------------
+% FINAL QC BEFORE SAVE
+% -------------------------------------------------------------------------
+bad_scn_cols = find(all(~isfinite(ph_scn_slave), 1));
+
+if ~isempty(bad_scn_cols)
+    error('PS_SCN_FILT_KRIG:BadSCNOutput', ...
+        'ph_scn_slave has all-nonfinite columns: %s', mat2str(bad_scn_cols));
+end
 
 save(scnname,'ph_scn_slave','ph_hpt','ph_ramp','ph_noise_res','std_ph_noise')
 logit(1);
