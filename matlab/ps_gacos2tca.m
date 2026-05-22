@@ -26,8 +26,7 @@ function ps_gacos2tca(gacos_dir)
     load('psver.mat', 'psver');
     psname = ['ps', num2str(psver)];
     laname = ['la', num2str(psver)];
-    out_file = ['tca',num2str(psver),'.mat'];
-       
+           
     %% 2. Load Coordinates and Interferogram Dates
     small_baseline_flag = getparm('small_baseline_flag');
 
@@ -36,12 +35,14 @@ function ps_gacos2tca(gacos_dir)
         ps_data = load(psname, 'lonlat', 'n_ifg', 'ifgday', 'll0');
         ifg_pairs = ps_data.ifgday;
         n_ifg = ps_data.n_ifg;
+        out_file = ['tca_sb',num2str(psver),'.mat'];
     else
         fprintf('Mode: PS. Building interferogram pairs...\n');
         ps_data = load(psname, 'lonlat', 'master_day', 'day', 'n_ifg', 'll0');
         % Bind all dates (including master) with the master date
         ifg_pairs = [repmat(ps_data.master_day, ps_data.n_ifg, 1), ps_data.day];
         n_ifg = ps_data.n_ifg;
+        out_file = ['tca',num2str(psver),'.mat'];
     end
 
     % Fetch reference PS indices using StaMPS-HPC standard method
