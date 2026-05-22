@@ -13,7 +13,7 @@
 
 # --- Function: Print Usage and Exit ---
 print_usage() {
-    echo "Usage: $(basename "$0") reference_date [slc_stack_path] [stack_geom_path] [slc_stack_baseline_path] [rg_looks] [az_looks]"
+    echo "Usage: $(basename "$0") reference_date [slc_stack_path] [stack_geom_path] [slc_stack_baseline_path] [quicklook_rg_looks] [quicklook_az_looks]"
     echo ""
     echo "Required Arguments:"
     echo "  reference_date          : Date of the single reference image (YYYYMMDD)"
@@ -23,9 +23,17 @@ print_usage() {
     echo "  stack_geom_path         : Default: 'merged/geom_reference'"
     echo "  slc_stack_baseline_path : Default: 'merged/baselines'"
     echo ""
-    echo "Optional Visualization Arguments:"
-    echo "  rg_looks                : Range looks for visualization (Default: 20)"
-    echo "  az_looks                : Azimuth looks for visualization (Default: 5)"
+    echo "Optional Quicklook-only Arguments:"
+    echo "  quicklook_rg_looks      : Range looks used ONLY for quicklook/PNG visualization. Default: 20"
+    echo "  quicklook_az_looks      : Azimuth looks used ONLY for quicklook/PNG visualization. Default: 5"
+    echo ""
+    echo "Important:"
+    echo "  quicklook_rg_looks and quicklook_az_looks do NOT control the interferogram generation."
+    echo "  They only control the downsampling used to create quicklook preview images."
+    echo "  Do not set them to 1 1 unless you intentionally want to skip multilooked quicklook generation."
+    echo ""
+    echo "Example:"
+    echo "  $(basename "$0") YYYYMMDD merged/SLC merged/geom_reference merged/baselines 20 5"
     echo ""
     exit 1
 }
@@ -50,8 +58,8 @@ GEOM_PATH=$(readlink -f "$ARG_GEOM")
 BASELINE_PATH=$(readlink -f "$ARG_BASE")
 
 # Visualization Parameters (Defaults for Sentinel-1 usually 20:5)
-RG_LOOKS=${5:-20}
-AZ_LOOKS=${6:-5}
+QUICKLOOK_RG_LOOKS=${5:-20}
+QUICKLOOK_AZ_LOOKS=${6:-5}
 
 # --- Hardcoded Parameters ---
 SLC_SUFFIX=".full"
@@ -101,7 +109,7 @@ echo "SLC Path    : $SLC_STACK_PATH"
 echo "Geom Path   : $GEOM_PATH"
 echo "Baselines   : $BASELINE_PATH"
 echo "Wavelength  : $LAMBDA"
-echo "Quicklooks  : Rg:$RG_LOOKS / Az:$AZ_LOOKS"
+echo "Quicklooks  : Rg:$QUICKLOOK_RG_LOOKS / Az:$QUICKLOOK_AZ_LOOKS"
 echo "================================================================="
 
 # --- Check Reference Date Format ---
@@ -338,8 +346,17 @@ for SEC_DATE in "${SLCS[@]}"; do
             
             # Generate Visualization (Quicklook, use mdx.py to visualize)
             LOOKS_IFG="$IFG_DIR/quicklook.int"
-            looks.py -i "$SAVE_IFG" -o "$LOOKS_IFG" -r "$RG_LOOKS" -a "$AZ_LOOKS" >> processing_SM.log
-            fixImageXml.py -f -i "$LOOKS_IFG"
+          
+            if [ "$QUICKLOOK_RG_LOOKS" -eq 1 ] && [ "$QUICKLOOK_AZ_LOOKS" -eq 1 ]; then
+                echo "Error: quicklook_rg_looks=1 and quicklook_az_looks=1."
+                echo "These parameters are only for quicklook visualization."
+                echo "With 1 x 1 looks, looks.py exits without generating quicklook output/XML."
+                echo "Please use, for example: 20 5"
+                exit 1
+            else
+                looks.py -i "$SAVE_IFG" -o "$LOOKS_IFG" -r "$QUICKLOOK_RG_LOOKS" -a "$QUICKLOOK_AZ_LOOKS" >> ../processing_PS.log 2>&1
+                fixImageXml.py -f -i "$LOOKS_IFG" >> ../processing_SB.log 2>&1
+            fi
             
             # -----------------------------------------------------------------
             # NEW: Generate High-Res PNG Previews automatically
