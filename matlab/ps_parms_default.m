@@ -225,7 +225,7 @@ function ps_parms_default()
     if ~isfield(parms,'scla_method')
         parms.scla_method = 'L2';           % Method for estimating SCLA (e.g., 'L2').
     end
-g
+
     % =========================================================================
     % STEP 8: FILTER SPATIALLY CORRELATED NOISE 
     % =========================================================================
