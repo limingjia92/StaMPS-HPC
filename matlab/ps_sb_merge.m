@@ -15,8 +15,8 @@ function [] = ps_sb_merge(ps_wd, sb_wd, merged_wd)
 %   MODIFICATION HEADER (StaMPS-HPC)
 %   ======================================================================
 %   Author:        Mingjia Li
-%   Date:          February 2026
-%   Version:       1.0 
+%   Date:          August 16, 2026
+%   Version:       1.1.0
 %   License:       GPL v3.0 (Inherited from StaMPS)
 %
 %   HPC Optimization:
@@ -28,6 +28,15 @@ function [] = ps_sb_merge(ps_wd, sb_wd, merged_wd)
 %      incorporated merging logic for raw phase datasets (ph2.mat).
 %   4. Path Robustness: Replaced OS shell commands with native MATLAB I/O 
 %      and implemented context-safe parameter retrieval.
+%
+%   Correctness & Safety Fixes (v1.1.0):
+%   5. MTI pm2 Integrity: Save only the merged ph_patch field, matching the
+%      original StaMPS ps_sb_merge behavior and preventing SB-only K_ps,
+%      C_ps, ph_res, and coh_ps arrays from leaking into the MERGED dataset.
+%   6. SB Parameter Enforcement: Require and copy the SBAS parms.mat only;
+%      abort if small_baseline_flag is not 'y'.
+%   7. Input Validation: Add hard checks for acquisition dates, master date,
+%      image/IFG counts, IFG design indices, and key matrix dimensions.
 %
 %   ======================================================================
 %   ORIGINAL HEADER (StaMPS)
@@ -45,26 +54,138 @@ if nargin < 3 || isempty(merged_wd)
     merged_wd = fullfile(pwd, 'MERGED');
 end
 
+if ~exist(ps_wd, 'dir')
+    error('StaMPS-HPC: PS directory does not exist: %s', ps_wd);
+end
+if ~exist(sb_wd, 'dir')
+    error('StaMPS-HPC: SBAS directory does not exist: %s', sb_wd);
+end
+
+required_input_files = {'ps2.mat', 'pm2.mat', 'rc2.mat', 'bp2.mat'};
+for k = 1:numel(required_input_files)
+    if ~exist(fullfile(ps_wd, required_input_files{k}), 'file')
+        error('StaMPS-HPC: Missing PS input file: %s', ...
+              fullfile(ps_wd, required_input_files{k}));
+    end
+    if ~exist(fullfile(sb_wd, required_input_files{k}), 'file')
+        error('StaMPS-HPC: Missing SBAS input file: %s', ...
+              fullfile(sb_wd, required_input_files{k}));
+    end
+end
+
+% MERGED is an SB-network dataset. Its parameters must therefore come from
+% the SBAS branch; falling back to PS parms.mat would make Step 6 follow the
+% wrong processing branch.
+sb_parms_file = fullfile(sb_wd, 'parms.mat');
+if ~exist(sb_parms_file, 'file')
+    error('StaMPS-HPC: SBAS parms.mat is required for MTI merge: %s', sb_parms_file);
+end
+
+sb_parms = load(sb_parms_file);
+if ~isfield(sb_parms, 'small_baseline_flag') || ...
+        ~strcmpi(strtrim(char(sb_parms.small_baseline_flag)), 'y')
+    error(['StaMPS-HPC: SBAS parms.mat must contain ', ...
+           'small_baseline_flag = ''y'' for MTI processing.']);
+end
+
 if ~exist(merged_wd, 'dir')
     mkdir(merged_wd);
 end
 
-% Copy auxiliary parameters safely
-if exist(fullfile(sb_wd, 'parms.mat'), 'file')
-    copyfile(fullfile(sb_wd, 'parms.mat'), merged_wd); 
-elseif exist(fullfile(ps_wd, 'parms.mat'), 'file') 
-    copyfile(fullfile(ps_wd, 'parms.mat'), merged_wd);
-else
-    warning('StaMPS-HPC: parms.mat not found in either ps_wd or sb_wd.');
+[copy_ok, copy_msg] = copyfile(sb_parms_file, fullfile(merged_wd, 'parms.mat'));
+if ~copy_ok
+    error('StaMPS-HPC: Failed to copy SBAS parms.mat: %s', copy_msg);
 end
+clear sb_parms;
 
 psver = 2;
 save(fullfile(merged_wd, 'psver.mat'), 'psver', '-v7.3');
 
-% 2. Load Core Data and Calculate Intersections
+% 2. Load Core Data and Validate PS/SB Network Consistency
 fprintf('Loading PS and SB core data...\n');
 psps = load(fullfile(ps_wd, 'ps2.mat'));
 pssb = load(fullfile(sb_wd, 'ps2.mat'));
+
+% Required core fields. Fail early rather than allowing a mismatched PS/SB
+% stack to produce a numerically valid but physically incorrect MTI result.
+required_ps_fields = {'n_ps', 'n_image', 'master_ix', 'master_day', ...
+                      'day', 'ij', 'lonlat'};
+required_sb_fields = {'n_ps', 'n_image', 'n_ifg', 'master_day', ...
+                      'day', 'ij', 'lonlat', 'ifgday_ix'};
+
+for k = 1:numel(required_ps_fields)
+    if ~isfield(psps, required_ps_fields{k})
+        error('StaMPS-HPC: PS ps2.mat missing required field: %s', required_ps_fields{k});
+    end
+end
+for k = 1:numel(required_sb_fields)
+    if ~isfield(pssb, required_sb_fields{k})
+        error('StaMPS-HPC: SBAS ps2.mat missing required field: %s', required_sb_fields{k});
+    end
+end
+
+% Point-array dimensions.
+if size(psps.ij, 1) ~= psps.n_ps || size(psps.ij, 2) < 3
+    error('StaMPS-HPC: PS ij dimensions are inconsistent with n_ps.');
+end
+if size(pssb.ij, 1) ~= pssb.n_ps || size(pssb.ij, 2) < 3
+    error('StaMPS-HPC: SBAS ij dimensions are inconsistent with n_ps.');
+end
+if size(psps.lonlat, 1) ~= psps.n_ps || size(psps.lonlat, 2) < 2
+    error('StaMPS-HPC: PS lonlat dimensions are inconsistent with n_ps.');
+end
+if size(pssb.lonlat, 1) ~= pssb.n_ps || size(pssb.lonlat, 2) < 2
+    error('StaMPS-HPC: SBAS lonlat dimensions are inconsistent with n_ps.');
+end
+
+% Acquisition dates and master must be identical between the two branches.
+if numel(psps.day) ~= psps.n_image || numel(pssb.day) ~= pssb.n_image
+    error('StaMPS-HPC: day vector length is inconsistent with n_image.');
+end
+if psps.n_image ~= pssb.n_image
+    error('StaMPS-HPC: PS/SBAS n_image mismatch (%d vs %d).', ...
+          psps.n_image, pssb.n_image);
+end
+if ~isequal(psps.day(:), pssb.day(:))
+    error('StaMPS-HPC: PS and SBAS acquisition-date vectors are not identical.');
+end
+
+if ~isscalar(psps.master_ix) || psps.master_ix ~= round(psps.master_ix) || ...
+        psps.master_ix < 1 || psps.master_ix > psps.n_image
+    error('StaMPS-HPC: PS master_ix is invalid.');
+end
+ps_master_day = psps.day(psps.master_ix);
+if ~isequal(psps.master_day, ps_master_day)
+    error('StaMPS-HPC: PS master_day does not match day(master_ix).');
+end
+if ~isequal(pssb.master_day, ps_master_day)
+    error('StaMPS-HPC: PS and SBAS master_day values are not identical.');
+end
+if isfield(pssb, 'master_ix')
+    if ~isscalar(pssb.master_ix) || pssb.master_ix ~= psps.master_ix
+        error('StaMPS-HPC: PS and SBAS master_ix values are inconsistent.');
+    end
+end
+
+% SB interferogram graph dimensions and index validity.
+if ~isscalar(pssb.n_ifg) || pssb.n_ifg < 1 || pssb.n_ifg ~= round(pssb.n_ifg)
+    error('StaMPS-HPC: SBAS n_ifg is invalid.');
+end
+if size(pssb.ifgday_ix, 1) ~= pssb.n_ifg || size(pssb.ifgday_ix, 2) ~= 2
+    error('StaMPS-HPC: SBAS ifgday_ix must be n_ifg-by-2.');
+end
+if any(~isfinite(pssb.ifgday_ix(:))) || ...
+        any(pssb.ifgday_ix(:) ~= round(pssb.ifgday_ix(:))) || ...
+        any(pssb.ifgday_ix(:) < 1) || any(pssb.ifgday_ix(:) > pssb.n_image)
+    error('StaMPS-HPC: SBAS ifgday_ix contains invalid acquisition indices.');
+end
+if any(pssb.ifgday_ix(:,1) == pssb.ifgday_ix(:,2))
+    error('StaMPS-HPC: SBAS ifgday_ix contains a self-interferogram.');
+end
+
+fprintf(['Input validation passed: %d acquisitions, %d SB interferograms, ', ...
+         '%d PS pixels, %d SB pixels.\n'], ...
+        psps.n_image, pssb.n_ifg, psps.n_ps, pssb.n_ps);
 
 % Map spatial coordinates
 [Lia, Locb] = ismember(psps.ij(:, 2:3), pssb.ij(:, 2:3), 'rows');
@@ -88,6 +209,37 @@ G = sparse(i_idx, j_idx, v_idx, pssb.n_ifg, pssb.n_image);
 fprintf('Processing pm2.mat...\n');
 pmps = load(fullfile(ps_wd, 'pm2.mat'));
 pmsb = load(fullfile(sb_wd, 'pm2.mat'));
+
+required_pmps_fields = {'ph_res', 'C_ps', 'ph_patch'};
+required_pmsb_fields = {'coh_ps', 'ph_patch'};
+for k = 1:numel(required_pmps_fields)
+    if ~isfield(pmps, required_pmps_fields{k})
+        error('StaMPS-HPC: PS pm2.mat missing required field: %s', required_pmps_fields{k});
+    end
+end
+for k = 1:numel(required_pmsb_fields)
+    if ~isfield(pmsb, required_pmsb_fields{k})
+        error('StaMPS-HPC: SBAS pm2.mat missing required field: %s', required_pmsb_fields{k});
+    end
+end
+
+if size(pmps.ph_res, 1) ~= psps.n_ps || size(pmps.ph_res, 2) ~= psps.n_image - 1
+    error('StaMPS-HPC: PS pm2.ph_res must be n_ps-by-(n_image-1).');
+end
+if size(pmps.C_ps, 1) ~= psps.n_ps || size(pmps.C_ps, 2) ~= 1
+    error('StaMPS-HPC: PS pm2.C_ps must be n_ps-by-1.');
+end
+if size(pmps.ph_patch, 1) ~= psps.n_ps || ...
+        size(pmps.ph_patch, 2) ~= psps.n_image - 1
+    error('StaMPS-HPC: PS pm2.ph_patch must be n_ps-by-(n_image-1).');
+end
+if numel(pmsb.coh_ps) ~= pssb.n_ps
+    error('StaMPS-HPC: SBAS pm2.coh_ps length is inconsistent with n_ps.');
+end
+if size(pmsb.ph_patch, 1) ~= pssb.n_ps || ...
+        size(pmsb.ph_patch, 2) ~= pssb.n_ifg
+    error('StaMPS-HPC: SBAS pm2.ph_patch must be n_ps-by-n_ifg.');
+end
 
 % Project PS residuals to SB network
 pmps.ph_res_all = [pmps.ph_res(:, 1:psps.master_ix-1), pmps.C_ps, pmps.ph_res(:, psps.master_ix:end)];
@@ -155,7 +307,11 @@ save(fullfile(merged_wd, 'ps2.mat'), '-struct', 'ps', '-v7.3');
 % 6. Merge pm2.mat
 fprintf('Merging pm2.mat...\n');
 pmps.ph_patch2 = exp(1j * G * angle([pmps.ph_patch(:, 1:psps.master_ix-1), ones(psps.n_ps,1), pmps.ph_patch(:, psps.master_ix:end)])').';
-pm = pmsb;
+% IMPORTANT: Keep MERGED pm2.mat semantically consistent with the original
+% StaMPS ps_sb_merge. Do not copy SB-only K_ps/C_ps/ph_res/coh_ps fields into
+% the merged dataset because their row count/order no longer matches ps.n_ps.
+pm = struct();
+pm.ph_patch = pmsb.ph_patch;
 
 tmp_patch = pmsb.ph_patch(sbnu_ix, :) .* sbnu_snr + pmps.ph_patch2(psnu_ix, :) .* psnu_snr;
 mask = tmp_patch ~= 0;
@@ -164,6 +320,10 @@ pm.ph_patch(sbnu_ix, :) = tmp_patch;
 
 pm.ph_patch = [pmps.ph_patch2(psu_ix, :); pm.ph_patch];
 pm.ph_patch = pm.ph_patch(sort_ix, :);
+
+if size(pm.ph_patch, 1) ~= ps.n_ps || size(pm.ph_patch, 2) ~= pssb.n_ifg
+    error('StaMPS-HPC: Internal error: merged pm2.ph_patch dimensions are inconsistent.');
+end
 save(fullfile(merged_wd, 'pm2.mat'), '-struct', 'pm', '-v7.3');
 clear pm pmps pmsb tmp_patch;
 
@@ -172,6 +332,19 @@ if exist(fullfile(ps_wd, 'ph2.mat'), 'file') && exist(fullfile(sb_wd, 'ph2.mat')
     fprintf('Processing ph2.mat...\n');
     phps = load(fullfile(ps_wd, 'ph2.mat'));
     phsb = load(fullfile(sb_wd, 'ph2.mat'));
+
+    if ~isfield(phps, 'ph') || ~isfield(phsb, 'ph')
+        error('StaMPS-HPC: ph2.mat must contain field ph in both PS and SBAS branches.');
+    end
+    if size(phps.ph, 1) ~= psps.n_ps
+        error('StaMPS-HPC: PS ph2.ph row count is inconsistent with n_ps.');
+    end
+    if size(phps.ph, 2) ~= pssb.n_image - 1 && size(phps.ph, 2) ~= pssb.n_image
+        error('StaMPS-HPC: PS ph2.ph must have n_image-1 or n_image columns.');
+    end
+    if size(phsb.ph, 1) ~= pssb.n_ps || size(phsb.ph, 2) ~= pssb.n_ifg
+        error('StaMPS-HPC: SBAS ph2.ph must be n_ps-by-n_ifg.');
+    end
     
     % Pad PS phase with master column if missing
     if size(phps.ph, 2) == pssb.n_image - 1
@@ -204,6 +377,16 @@ fprintf('Processing rc2.mat...\n');
 rcps = load(fullfile(ps_wd, 'rc2.mat'));
 rcsb = load(fullfile(sb_wd, 'rc2.mat'));
 
+if ~isfield(rcps, 'ph_rc') || ~isfield(rcsb, 'ph_rc')
+    error('StaMPS-HPC: rc2.mat must contain field ph_rc in both PS and SBAS branches.');
+end
+if size(rcps.ph_rc, 1) ~= psps.n_ps || size(rcps.ph_rc, 2) ~= psps.n_image
+    error('StaMPS-HPC: PS rc2.ph_rc must be n_ps-by-n_image.');
+end
+if size(rcsb.ph_rc, 1) ~= pssb.n_ps || size(rcsb.ph_rc, 2) ~= pssb.n_ifg
+    error('StaMPS-HPC: SBAS rc2.ph_rc must be n_ps-by-n_ifg.');
+end
+
 rcps.ph_rc2 = exp(1j * G * angle(rcps.ph_rc)').'; 
 rc = rcsb;
 
@@ -221,6 +404,18 @@ clear rc rcps rcsb tmp_rc;
 fprintf('Processing bp2.mat...\n');
 bpps = load(fullfile(ps_wd, 'bp2.mat'));
 bpsb = load(fullfile(sb_wd, 'bp2.mat'));
+
+if ~isfield(bpps, 'bperp_mat') || ~isfield(bpsb, 'bperp_mat')
+    error('StaMPS-HPC: bp2.mat must contain field bperp_mat in both PS and SBAS branches.');
+end
+if size(bpps.bperp_mat, 1) ~= psps.n_ps || ...
+        size(bpps.bperp_mat, 2) ~= psps.n_image - 1
+    error('StaMPS-HPC: PS bp2.bperp_mat must be n_ps-by-(n_image-1).');
+end
+if size(bpsb.bperp_mat, 1) ~= pssb.n_ps || ...
+        size(bpsb.bperp_mat, 2) ~= pssb.n_ifg
+    error('StaMPS-HPC: SBAS bp2.bperp_mat must be n_ps-by-n_ifg.');
+end
 
 % Convert to double for sparse matrix multiplication, then revert to single
 bpps_full = double([bpps.bperp_mat(:, 1:psps.master_ix-1), zeros(psps.n_ps,1), bpps.bperp_mat(:, psps.master_ix:end)]);
@@ -246,6 +441,15 @@ for v = 1:length(aux_vars)
         fprintf('Processing %s.mat...\n', var_name);
         var_ps = load(ps_file);
         var_sb = load(sb_file);
+
+        if ~isfield(var_ps, field_name) || ~isfield(var_sb, field_name)
+            error('StaMPS-HPC: %s.mat does not contain expected field %s.', ...
+                  var_name, field_name);
+        end
+        if size(var_ps.(field_name), 1) ~= psps.n_ps || ...
+                size(var_sb.(field_name), 1) ~= pssb.n_ps
+            error('StaMPS-HPC: %s dimensions are inconsistent with PS/SB n_ps.', var_name);
+        end
         
         out_var = var_sb;
         out_var.(field_name) = [var_ps.(field_name)(psu_ix, :); out_var.(field_name)];
@@ -256,6 +460,10 @@ for v = 1:length(aux_vars)
     end
 end
 
+fprintf(['MTI integrity summary: PS input=%d, SB input=%d, exact overlap=%d, ', ...
+         'unique PS retained=%d, MERGED=%d.\n'], ...
+        psps.n_ps, pssb.n_ps, numel(psnu_ix), numel(psu_ix), ps.n_ps);
+
 logit(1);
-fprintf('--- MTI Merge Completed Successfully ---\n');
+fprintf('--- MTI Merge Completed Successfully (StaMPS-HPC v1.1.0) ---\n');
 end
