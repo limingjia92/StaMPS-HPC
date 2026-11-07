@@ -196,6 +196,7 @@ i_idx = [1:pssb.n_ifg, 1:pssb.n_ifg]';
 j_idx = [pssb.ifgday_ix(:,1); pssb.ifgday_ix(:,2)];
 v_idx = [-ones(pssb.n_ifg, 1); ones(pssb.n_ifg, 1)];
 G = sparse(i_idx, j_idx, v_idx, pssb.n_ifg, pssb.n_image);
+G_single = single(full(G));
 
 % 4. Process pm2.mat (Phase & Coherence)
 fprintf('Processing pm2.mat...\n');
@@ -235,7 +236,7 @@ end
 
 % Project PS residuals to SB network
 pmps.ph_res_all = [pmps.ph_res(:, 1:psps.master_ix-1), pmps.C_ps, pmps.ph_res(:, psps.master_ix:end)];
-pmps.ph_res3 = exp(1j * (G * pmps.ph_res_all')'); 
+pmps.ph_res3 = exp(1j * (G_single  * pmps.ph_res_all')'); 
 pmps.coh_ps2 = abs(sum(pmps.ph_res3, 2)) / pssb.n_ifg; 
 
 % Calculate SNR weights (used for all subsequent phase merges)
@@ -298,7 +299,8 @@ save(fullfile(merged_wd, 'ps2.mat'), '-struct', 'ps', '-v7.3');
 
 % 6. Merge pm2.mat
 fprintf('Merging pm2.mat...\n');
-pmps.ph_patch2 = exp(1j * G * angle([pmps.ph_patch(:, 1:psps.master_ix-1), ones(psps.n_ps,1), pmps.ph_patch(:, psps.master_ix:end)])').';
+ps_ph_patch_full = [pmps.ph_patch(:, 1:psps.master_ix-1), ones(psps.n_ps, 1, 'single'), pmps.ph_patch(:, psps.master_ix:end)];
+pmps.ph_patch2 = exp(1j * (G_single * single(angle(ps_ph_patch_full)'))').';
 % IMPORTANT: Keep MERGED pm2.mat semantically consistent with the original
 % StaMPS ps_sb_merge. Do not copy SB-only K_ps/C_ps/ph_res/coh_ps fields into
 % the merged dataset because their row count/order no longer matches ps.n_ps.
@@ -346,7 +348,7 @@ if exist(fullfile(ps_wd, 'ph2.mat'), 'file') && exist(fullfile(sb_wd, 'ph2.mat')
     end
     
     % Project to SBAS network
-    phps.ph2 = exp(1j * G * angle(ph_ps_full)').'; 
+    phps.ph2 = exp(1j * G_single * angle(ph_ps_full)').'; 
     
     ph = phsb;
     
@@ -379,7 +381,7 @@ if size(rcsb.ph_rc, 1) ~= pssb.n_ps || size(rcsb.ph_rc, 2) ~= pssb.n_ifg
     error('StaMPS-HPC: SBAS rc2.ph_rc must be n_ps-by-n_ifg.');
 end
 
-rcps.ph_rc2 = exp(1j * G * angle(rcps.ph_rc)').'; 
+rcps.ph_rc2 = exp(1j * G_single * angle(rcps.ph_rc)').'; 
 rc = rcsb;
 
 tmp_rc = rcsb.ph_rc(sbnu_ix, :) .* sbnu_snr + rcps.ph_rc2(psnu_ix, :) .* psnu_snr;
@@ -411,7 +413,7 @@ end
 
 % Convert to double for sparse matrix multiplication, then revert to single
 bpps_full = double([bpps.bperp_mat(:, 1:psps.master_ix-1), zeros(psps.n_ps,1), bpps.bperp_mat(:, psps.master_ix:end)]);
-bpps.bperp_mat2 = single((G * bpps_full')');
+bpps.bperp_mat2 = single((G_single * bpps_full')');
 
 bp = bpsb;
 bp.bperp_mat = [bpps.bperp_mat2(psu_ix, :); bp.bperp_mat];
