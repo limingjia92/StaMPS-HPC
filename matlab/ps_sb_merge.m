@@ -16,7 +16,7 @@ function [] = ps_sb_merge(ps_wd, sb_wd, merged_wd)
 %   ======================================================================
 %   Author:        Mingjia Li
 %   Date:          November 7, 2026
-%   Version:       1.2.0
+%   Version:       1.2.1
 %   License:       GPL v3.0 (Inherited from StaMPS)
 %
 %   HPC Optimization:
@@ -37,6 +37,18 @@ function [] = ps_sb_merge(ps_wd, sb_wd, merged_wd)
 %      abort if small_baseline_flag is not 'y'.
 %   7. Input Validation: Add hard checks for acquisition dates, master date,
 %      image/IFG counts, IFG design indices, and key matrix dimensions.
+%
+%   Correctness Fixes (v1.2.1, November 7, 2026):
+%   8. PS/SBAS Master Independence: Do not require PS and SBAS master_day or
+%      master_ix to be identical. Validate each branch's master metadata
+%      independently; the merged dataset retains the SBAS network metadata.
+%   9. Single-Precision Phase Projection: Add dense single G_single for
+%      single-precision PS phase arrays, avoiding unsupported sparse-double x
+%      single multiplication while retaining sparse-double G for baselines.
+%  10. Patch Projection Orientation: Correct pmps.ph_patch2 to n_ps-by-n_ifg
+%      by applying exactly one transpose after the network projection.
+%  11. Baseline Precision: Keep perpendicular-baseline projection on sparse
+%      double G and double input, then cast the result back to single.
 %
 %   ======================================================================
 %   ORIGINAL HEADER (StaMPS)
@@ -138,7 +150,8 @@ if size(pssb.lonlat, 1) ~= pssb.n_ps || size(pssb.lonlat, 2) < 2
     error('StaMPS-HPC: SBAS lonlat dimensions are inconsistent with n_ps.');
 end
 
-% Acquisition dates and master must be identical between the two branches.
+% Acquisition-date vectors must be identical. PS and SBAS master references
+% are branch-specific and are validated independently below.
 if numel(psps.day) ~= psps.n_image || numel(pssb.day) ~= pssb.n_image
     error('StaMPS-HPC: day vector length is inconsistent with n_image.');
 end
@@ -157,6 +170,21 @@ end
 ps_master_day = psps.day(psps.master_ix);
 if ~isequal(psps.master_day, ps_master_day)
     error('StaMPS-HPC: PS master_day does not match day(master_ix).');
+end
+
+% SBAS does not use a single common master for its interferogram network.
+% Its initialization metadata may therefore differ from the PS master, but
+% when master_ix is present, its own master_day/master_ix pair must be valid.
+if isfield(pssb, 'master_ix') && ~isempty(pssb.master_ix)
+    if ~isscalar(pssb.master_ix) || ~isfinite(pssb.master_ix) || ...
+            pssb.master_ix ~= round(pssb.master_ix) || ...
+            pssb.master_ix < 1 || pssb.master_ix > pssb.n_image
+        error('StaMPS-HPC: SBAS master_ix is invalid.');
+    end
+    sb_master_day = pssb.day(pssb.master_ix);
+    if ~isequal(pssb.master_day, sb_master_day)
+        error('StaMPS-HPC: SBAS master_day does not match day(master_ix).');
+    end
 end
 
 % SB interferogram graph dimensions and index validity.
@@ -196,6 +224,8 @@ i_idx = [1:pssb.n_ifg, 1:pssb.n_ifg]';
 j_idx = [pssb.ifgday_ix(:,1); pssb.ifgday_ix(:,2)];
 v_idx = [-ones(pssb.n_ifg, 1); ones(pssb.n_ifg, 1)];
 G = sparse(i_idx, j_idx, v_idx, pssb.n_ifg, pssb.n_image);
+% The network matrix is small (n_ifg-by-n_image). Keep sparse double G for
+% baseline projection, and create dense single G for large single phase arrays.
 G_single = single(full(G));
 
 % 4. Process pm2.mat (Phase & Coherence)
@@ -236,7 +266,7 @@ end
 
 % Project PS residuals to SB network
 pmps.ph_res_all = [pmps.ph_res(:, 1:psps.master_ix-1), pmps.C_ps, pmps.ph_res(:, psps.master_ix:end)];
-pmps.ph_res3 = exp(1j * (G_single  * pmps.ph_res_all')'); 
+pmps.ph_res3 = exp(1j * (G_single * single(pmps.ph_res_all'))');
 pmps.coh_ps2 = abs(sum(pmps.ph_res3, 2)) / pssb.n_ifg; 
 
 % Calculate SNR weights (used for all subsequent phase merges)
@@ -299,8 +329,13 @@ save(fullfile(merged_wd, 'ps2.mat'), '-struct', 'ps', '-v7.3');
 
 % 6. Merge pm2.mat
 fprintf('Merging pm2.mat...\n');
-ps_ph_patch_full = [pmps.ph_patch(:, 1:psps.master_ix-1), ones(psps.n_ps, 1, 'single'), pmps.ph_patch(:, psps.master_ix:end)];
-pmps.ph_patch2 = exp(1j * (G_single * single(angle(ps_ph_patch_full)'))').';
+ps_ph_patch_full = [ ...
+    pmps.ph_patch(:, 1:psps.master_ix-1), ...
+    ones(psps.n_ps, 1, 'single'), ...
+    pmps.ph_patch(:, psps.master_ix:end)];
+% Output orientation must be n_ps-by-n_ifg (one transpose only).
+pmps.ph_patch2 = exp(1j * ...
+    (G_single * single(angle(ps_ph_patch_full)'))');
 % IMPORTANT: Keep MERGED pm2.mat semantically consistent with the original
 % StaMPS ps_sb_merge. Do not copy SB-only K_ps/C_ps/ph_res/coh_ps fields into
 % the merged dataset because their row count/order no longer matches ps.n_ps.
@@ -342,13 +377,13 @@ if exist(fullfile(ps_wd, 'ph2.mat'), 'file') && exist(fullfile(sb_wd, 'ph2.mat')
     
     % Pad PS phase with master column if missing
     if size(phps.ph, 2) == pssb.n_image - 1
-        ph_ps_full = [phps.ph(:, 1:psps.master_ix-1), ones(psps.n_ps, 1), phps.ph(:, psps.master_ix:end)];
+        ph_ps_full = [phps.ph(:, 1:psps.master_ix-1), ones(psps.n_ps, 1, 'like', phps.ph), phps.ph(:, psps.master_ix:end)];
     else
         ph_ps_full = phps.ph; 
     end
     
     % Project to SBAS network
-    phps.ph2 = exp(1j * G_single * angle(ph_ps_full)').'; 
+    phps.ph2 = exp(1j * (G_single * single(angle(ph_ps_full)'))).';
     
     ph = phsb;
     
@@ -381,7 +416,7 @@ if size(rcsb.ph_rc, 1) ~= pssb.n_ps || size(rcsb.ph_rc, 2) ~= pssb.n_ifg
     error('StaMPS-HPC: SBAS rc2.ph_rc must be n_ps-by-n_ifg.');
 end
 
-rcps.ph_rc2 = exp(1j * G_single * angle(rcps.ph_rc)').'; 
+rcps.ph_rc2 = exp(1j * (G_single * single(angle(rcps.ph_rc)'))).';
 rc = rcsb;
 
 tmp_rc = rcsb.ph_rc(sbnu_ix, :) .* sbnu_snr + rcps.ph_rc2(psnu_ix, :) .* psnu_snr;
@@ -413,7 +448,7 @@ end
 
 % Convert to double for sparse matrix multiplication, then revert to single
 bpps_full = double([bpps.bperp_mat(:, 1:psps.master_ix-1), zeros(psps.n_ps,1), bpps.bperp_mat(:, psps.master_ix:end)]);
-bpps.bperp_mat2 = single((G_single * bpps_full')');
+bpps.bperp_mat2 = single((G * bpps_full')');
 
 bp = bpsb;
 bp.bperp_mat = [bpps.bperp_mat2(psu_ix, :); bp.bperp_mat];
@@ -459,5 +494,5 @@ fprintf(['MTI integrity summary: PS input=%d, SB input=%d, exact overlap=%d, ', 
         psps.n_ps, pssb.n_ps, numel(psnu_ix), numel(psu_ix), ps.n_ps);
 
 logit(1);
-fprintf('--- MTI Merge Completed Successfully (StaMPS-HPC v1.1.0) ---\n');
+fprintf('--- MTI Merge Completed Successfully (StaMPS-HPC v1.2.1) ---\n');
 end
