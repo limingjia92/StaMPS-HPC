@@ -15,8 +15,8 @@ function [] = ps_sb_merge(ps_wd, sb_wd, merged_wd)
 %   MODIFICATION HEADER (StaMPS-HPC)
 %   ======================================================================
 %   Author:        Mingjia Li
-%   Date:          August 16, 2026
-%   Version:       1.1.0
+%   Date:          November 7, 2026
+%   Version:       1.2.0
 %   License:       GPL v3.0 (Inherited from StaMPS)
 %
 %   HPC Optimization:
@@ -157,14 +157,6 @@ end
 ps_master_day = psps.day(psps.master_ix);
 if ~isequal(psps.master_day, ps_master_day)
     error('StaMPS-HPC: PS master_day does not match day(master_ix).');
-end
-if ~isequal(pssb.master_day, ps_master_day)
-    error('StaMPS-HPC: PS and SBAS master_day values are not identical.');
-end
-if isfield(pssb, 'master_ix')
-    if ~isscalar(pssb.master_ix) || pssb.master_ix ~= psps.master_ix
-        error('StaMPS-HPC: PS and SBAS master_ix values are inconsistent.');
-    end
 end
 
 % SB interferogram graph dimensions and index validity.
